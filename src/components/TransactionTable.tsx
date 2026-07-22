@@ -188,7 +188,7 @@ export function TransactionTable({
 
   const totalSelectedAmount = useMemo(() => {
     return transactions
-      .filter((t) => selectedIds.includes(t.id))
+      .filter((t) => selectedIds.includes(t.id) || selectedIds.includes(String(t.id)))
       .reduce((acc, curr) => acc + (curr.netto || 0), 0);
   }, [transactions, selectedIds]);
 
@@ -205,7 +205,12 @@ export function TransactionTable({
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const totalAmount = itemsToPrint.reduce((acc, curr) => acc + (curr.netto || 0), 0);
+    // If user has selected items and triggers a general print, default to printing selected items
+    const selectedItemsList = transactions.filter((t) => selectedIds.includes(t.id) || selectedIds.includes(String(t.id)));
+    const targetItems = (selectedIds.length > 0 && itemsToPrint === filteredTransactions) ? selectedItemsList : itemsToPrint;
+    const targetTitle = (selectedIds.length > 0 && itemsToPrint === filteredTransactions) ? 'LAPORAN TRANSAKSI TERPILIH BOSP' : title;
+
+    const totalAmount = targetItems.reduce((acc, curr) => acc + (curr.netto || 0), 0);
 
     const namaSekolah = settings?.namaSekolah || 'SD NEGERI CIBORANG';
     const kepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nama : (settings?.kepalaSekolah || 'NAMA KEPALA SEKOLAH');
@@ -219,7 +224,7 @@ export function TransactionTable({
       year: 'numeric',
     });
 
-    const tableRows = itemsToPrint
+    const tableRows = targetItems
       .map(
         (tx, idx) => `
       <tr style="border-bottom: 1px solid #e2e8f0; ${idx % 2 === 1 ? 'background-color: #f8fafc;' : ''}">
@@ -245,7 +250,7 @@ export function TransactionTable({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>${title} - ${namaSekolah}</title>
+          <title>${targetTitle} - ${namaSekolah}</title>
           <style>
             @page {
               size: A4 landscape;
@@ -342,9 +347,9 @@ export function TransactionTable({
         </head>
         <body>
           <div class="header">
-            <h1>${title}</h1>
+            <h1>${targetTitle}</h1>
             <h2>${namaSekolah}</h2>
-            <p>Dicetak pada: ${dateStr} | Total ${itemsToPrint.length} Transaksi</p>
+            <p>Dicetak pada: ${dateStr} | Total ${targetItems.length} Transaksi</p>
           </div>
 
           <div class="meta-info">
@@ -380,7 +385,7 @@ export function TransactionTable({
             <table class="summary-table">
               <tr>
                 <td><strong>Total Transaksi:</strong></td>
-                <td class="right">${itemsToPrint.length} Item</td>
+                <td class="right">${targetItems.length} Item</td>
               </tr>
               <tr style="background-color: #f8fafc; font-weight: bold;">
                 <td><strong>TOTAL NETTO:</strong></td>

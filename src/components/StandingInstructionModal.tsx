@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, SchoolSettings, StandingInstructionConfig } from '../types';
 import { StandingInstructionDoc } from './StandingInstructionDoc';
+import { formatTitimangsa } from '../utils/terbilang';
 import { exportToPdf, printDocument } from '../utils/pdfGenerator';
 import { Download, Printer, X, Sliders, CheckCircle2, ArrowLeft, Loader2, Filter, AlertTriangle } from 'lucide-react';
 
@@ -32,7 +33,7 @@ export function StandingInstructionModal({
     lampiran: '-',
     perihal: 'Permohonan Pemindah Bukuan',
     tujuanPenggunaan: derivedPurpose,
-    tanggalSurat: firstItem?.tanggal || '22 Januari 2025',
+    tanggalSurat: formatTitimangsa(firstItem?.tanggal || '22 Januari 2025'),
     sumberDana: `BOSP REGULER ${derivedYear}`,
     notes: '',
     marginTop: 10,
@@ -44,7 +45,7 @@ export function StandingInstructionModal({
 
   // Unique No. Surat List
   const availableNoSuratList = useMemo(() => {
-    const source = allTransactions.length > 0 ? allTransactions : selectedItems;
+    const source = selectedItems.length > 0 ? selectedItems : allTransactions;
     const set = new Set<string>();
     source.forEach((t) => {
       const ns = String(t.noSurat || '').trim();
@@ -53,7 +54,7 @@ export function StandingInstructionModal({
       }
     });
     return Array.from(set).sort();
-  }, [allTransactions, selectedItems]);
+  }, [selectedItems, allTransactions]);
 
   // Sync if selected items change or modal opens
   useEffect(() => {
@@ -67,31 +68,37 @@ export function StandingInstructionModal({
           ...prev,
           nomorSurat: targetNoSurat,
           tujuanPenggunaan: matchItem?.jenisTransaksi || prev.tujuanPenggunaan,
-          tanggalSurat: matchItem?.tanggal || prev.tanggalSurat,
+          tanggalSurat: formatTitimangsa(matchItem?.tanggal || prev.tanggalSurat),
           sumberDana: `BOSP REGULER ${matchItem?.tahun || '2026'}`,
         }));
       }
     }
   }, [isOpen, selectedItems]);
 
-  // STRICTLY FILTER preview items by active config.nomorSurat
+  // STRICTLY FILTER preview items by active config.nomorSurat without pulling unselected items
   const filteredItemsForDoc = useMemo(() => {
-    const activeNoSurat = String(config.nomorSurat || '').trim();
-    if (!activeNoSurat) {
+    if (selectedItems.length > 0) {
+      const activeNoSurat = String(config.nomorSurat || '').trim();
+      if (!activeNoSurat) {
+        return selectedItems;
+      }
+
+      // Filter within selectedItems if activeNoSurat is matched
+      const matchesFromSelected = selectedItems.filter(
+        (t) => String(t.noSurat || '').trim().toLowerCase() === activeNoSurat.toLowerCase()
+      );
+
+      if (matchesFromSelected.length > 0) {
+        return matchesFromSelected;
+      }
+
+      // If custom text entered or no exact match in selectedItems, strictly return selectedItems
       return selectedItems;
     }
 
-    // 1. Try filtering selectedItems by activeNoSurat (case-insensitive)
-    const matchesFromSelected = selectedItems.filter(
-      (t) => String(t.noSurat || '').trim().toLowerCase() === activeNoSurat.toLowerCase()
-    );
-
-    if (matchesFromSelected.length > 0) {
-      return matchesFromSelected;
-    }
-
-    // 2. Search in allTransactions if user picked a No. Surat not in currently checked checkboxes
-    if (allTransactions.length > 0) {
+    // Fallback ONLY if no items were selected via checkboxes
+    const activeNoSurat = String(config.nomorSurat || '').trim();
+    if (activeNoSurat && allTransactions.length > 0) {
       const matchesFromAll = allTransactions.filter(
         (t) => String(t.noSurat || '').trim().toLowerCase() === activeNoSurat.toLowerCase()
       );
@@ -100,8 +107,7 @@ export function StandingInstructionModal({
       }
     }
 
-    // 3. Fallback if custom text entered
-    return selectedItems;
+    return [];
   }, [config.nomorSurat, selectedItems, allTransactions]);
 
   if (!isOpen) return null;
@@ -141,7 +147,7 @@ export function StandingInstructionModal({
       ...prev,
       nomorSurat: noSuratVal,
       tujuanPenggunaan: match?.jenisTransaksi || prev.tujuanPenggunaan,
-      tanggalSurat: match?.tanggal || prev.tanggalSurat,
+      tanggalSurat: formatTitimangsa(match?.tanggal || prev.tanggalSurat),
       sumberDana: match?.tahun ? `BOSP REGULER ${match.tahun}` : prev.sumberDana,
     }));
   };

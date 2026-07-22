@@ -1,6 +1,6 @@
 import React from 'react';
 import { Transaction, SchoolSettings, StandingInstructionConfig } from '../types';
-import { formatRupiah, terbilangRupiah } from '../utils/terbilang';
+import { formatRupiah, terbilangRupiah, formatTitimangsa } from '../utils/terbilang';
 import { LogoBandungBarat, LogoTutWuri } from './Logos';
 
 interface StandingInstructionDocProps {
@@ -251,24 +251,26 @@ export function StandingInstructionDoc({
 
       {/* SIGNATURE SECTION */}
       <div className="mt-6 font-sans">
-        <div className="text-center ml-auto w-64 mb-1">
-          <p>{settings.kotaSurat}, {config.tanggalSurat || '22 Januari 2025'}</p>
-          <p className="font-semibold">Pemohon</p>
-        </div>
-
-        <div className="grid grid-cols-2 text-center pt-2">
-          <div>
-            <p className="font-semibold">{settings.kepalaSekolah.jabatan},</p>
-            <div className="h-16"></div>
-            <p className="font-bold underline uppercase">{settings.kepalaSekolah.nama}</p>
-            <p className="text-[9.5px]">NIP. {settings.kepalaSekolah.nip}</p>
+        <div className="max-w-xl mx-auto">
+          <div className="text-center ml-auto w-60 mb-1">
+            <p>{settings.kotaSurat}, {formatTitimangsa(config.tanggalSurat)}</p>
+            <p className="font-semibold">Pemohon</p>
           </div>
 
-          <div>
-            <p className="font-semibold">{settings.bendahara.jabatan},</p>
-            <div className="h-16"></div>
-            <p className="font-bold underline uppercase">{settings.bendahara.nama}</p>
-            <p className="text-[9.5px]">NIP. {settings.bendahara.nip}</p>
+          <div className="grid grid-cols-2 gap-10 text-center pt-2">
+            <div>
+              <p className="font-semibold">{settings.kepalaSekolah.jabatan},</p>
+              <div className="h-16"></div>
+              <p className="font-bold underline uppercase">{settings.kepalaSekolah.nama}</p>
+              <p className="text-[9.5px]">NIP. {settings.kepalaSekolah.nip}</p>
+            </div>
+
+            <div>
+              <p className="font-semibold">{settings.bendahara.jabatan},</p>
+              <div className="h-16"></div>
+              <p className="font-bold underline uppercase">{settings.bendahara.nama}</p>
+              <p className="text-[9.5px]">NIP. {settings.bendahara.nip}</p>
+            </div>
           </div>
         </div>
       </div>
