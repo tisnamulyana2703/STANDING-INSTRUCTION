@@ -1,0 +1,6 @@
+{
+  "name": "Aplikasi Standing Instruction BOSP - SD Negeri Ciburial",
+  "description": "Aplikasi integrasi database spreadsheet transaksi BOSP dan pembuat dokumen Standing Instruction Bank BJB otomatis berbentuk PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
