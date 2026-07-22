@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Transaction } from '../types';
+import { Transaction, SchoolSettings } from '../types';
 import { formatRupiah } from '../utils/terbilang';
 import {
   Search,
@@ -17,12 +17,14 @@ import {
   SlidersHorizontal,
   RefreshCw,
   Download,
-  Cloud
+  Cloud,
+  Printer
 } from 'lucide-react';
 
 interface TransactionTableProps {
   transactions: Transaction[];
   selectedIds: string[];
+  settings?: SchoolSettings;
   onToggleSelect: (id: string) => void;
   onSelectAll: (ids: string[]) => void;
   onSelectGroupNoSurat: (noSurat: string) => void;
@@ -38,6 +40,7 @@ interface TransactionTableProps {
 export function TransactionTable({
   transactions,
   selectedIds,
+  settings,
   onToggleSelect,
   onSelectAll,
   onSelectGroupNoSurat,
@@ -93,7 +96,7 @@ export function TransactionTable({
 
   // Extract unique filter options
   const years = useMemo(() => {
-    const list = Array.from(new Set(transactions.map((t) => t.tahun).filter(Boolean)));
+    const list = Array.from(new Set(transactions.map((t) => String(t.tahun || '')).filter(Boolean)));
     return list.sort((a, b) => b.localeCompare(a));
   }, [transactions]);
 
@@ -105,11 +108,11 @@ export function TransactionTable({
   }, []);
 
   const jenisList = useMemo(() => {
-    return Array.from(new Set(transactions.map((t) => t.jenisTransaksi).filter(Boolean))).sort();
+    return Array.from(new Set(transactions.map((t) => String(t.jenisTransaksi || '')).filter(Boolean))).sort();
   }, [transactions]);
 
   const noSuratList = useMemo(() => {
-    return Array.from(new Set(transactions.map((t) => t.noSurat).filter(Boolean))).sort();
+    return Array.from(new Set(transactions.map((t) => String(t.noSurat || '')).filter(Boolean))).sort();
   }, [transactions]);
 
   // Helper to parse DD/MM/YYYY date strings
@@ -130,28 +133,28 @@ export function TransactionTable({
     const list = transactions.filter((tx) => {
       const isMasuk =
         tx.tipeTransaksi === 'MASUK' ||
-        (tx.jenisTransaksi || '').toUpperCase().includes('SALUR') ||
-        (tx.jenisTransaksi || '').toUpperCase().includes('PEMASUKAN') ||
+        String(tx.jenisTransaksi || '').toUpperCase().includes('SALUR') ||
+        String(tx.jenisTransaksi || '').toUpperCase().includes('PEMASUKAN') ||
         tx.siplah === 'BOS SALUR';
 
       if (tipeFilter === 'MASUK' && !isMasuk) return false;
       if (tipeFilter === 'KELUAR' && isMasuk) return false;
 
-      if (yearFilter !== 'ALL' && tx.tahun !== yearFilter) return false;
-      if (monthFilter !== 'ALL' && tx.bulan !== monthFilter) return false;
-      if (jenisFilter !== 'ALL' && tx.jenisTransaksi !== jenisFilter) return false;
-      if (noSuratFilter !== 'ALL' && tx.noSurat !== noSuratFilter) return false;
+      if (yearFilter !== 'ALL' && String(tx.tahun) !== yearFilter) return false;
+      if (monthFilter !== 'ALL' && String(tx.bulan) !== monthFilter) return false;
+      if (jenisFilter !== 'ALL' && String(tx.jenisTransaksi) !== jenisFilter) return false;
+      if (noSuratFilter !== 'ALL' && String(tx.noSurat) !== noSuratFilter) return false;
 
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
         const match =
-          tx.namaPenerima.toLowerCase().includes(q) ||
-          tx.noSurat.toLowerCase().includes(q) ||
-          tx.noRekPenerima.toLowerCase().includes(q) ||
-          tx.keterangan.toLowerCase().includes(q) ||
-          tx.vendor.toLowerCase().includes(q) ||
-          tx.noPo.toLowerCase().includes(q) ||
-          tx.kategori.toLowerCase().includes(q);
+          String(tx.namaPenerima || '').toLowerCase().includes(q) ||
+          String(tx.noSurat || '').toLowerCase().includes(q) ||
+          String(tx.noRekPenerima || '').toLowerCase().includes(q) ||
+          String(tx.keterangan || '').toLowerCase().includes(q) ||
+          String(tx.vendor || '').toLowerCase().includes(q) ||
+          String(tx.noPo || '').toLowerCase().includes(q) ||
+          String(tx.kategori || '').toLowerCase().includes(q);
         if (!match) return false;
       }
 
@@ -198,6 +201,224 @@ export function TransactionTable({
     setCurrentPage(1);
   };
 
+  const handlePrintTransactions = (itemsToPrint: Transaction[], title: string = 'LAPORAN DATABASE TRANSAKSI BOSP') => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const totalAmount = itemsToPrint.reduce((acc, curr) => acc + (curr.netto || 0), 0);
+
+    const namaSekolah = settings?.namaSekolah || 'SD NEGERI CIBORANG';
+    const kepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nama : (settings?.kepalaSekolah || 'NAMA KEPALA SEKOLAH');
+    const nipKepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nip : '-';
+    const bendahara = typeof settings?.bendahara === 'object' ? settings.bendahara.nama : (settings?.bendahara || 'NAMA BENDAHARA');
+    const nipBendahara = typeof settings?.bendahara === 'object' ? settings.bendahara.nip : '-';
+
+    const dateStr = new Date().toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const tableRows = itemsToPrint
+      .map(
+        (tx, idx) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; ${idx % 2 === 1 ? 'background-color: #f8fafc;' : ''}">
+        <td style="padding: 6px 8px; text-align: center;">${idx + 1}</td>
+        <td style="padding: 6px 8px; text-align: center; font-size: 10px;">${tx.tanggal || '-'}</td>
+        <td style="padding: 6px 8px;">
+          <div style="font-weight: 600; color: #0f172a;">${tx.jenisTransaksi || '-'}</div>
+          <div style="font-size: 10px; color: #64748b;">${tx.kategori || ''} ${tx.siplah ? `• ${tx.siplah}` : ''}</div>
+        </td>
+        <td style="padding: 6px 8px;">
+          <div style="font-weight: 600;">${tx.namaPenerima || '-'}</div>
+          <div style="font-size: 10px; color: #64748b;">Bank: ${tx.namaBank || 'BJB'} (${tx.noRekPenerima || '-'})</div>
+        </td>
+        <td style="padding: 6px 8px; font-size: 10px; font-family: monospace;">${tx.noSurat || '-'}</td>
+        <td style="padding: 6px 8px;">${tx.keterangan || '-'}</td>
+        <td style="padding: 6px 8px; text-align: right; font-weight: 700; font-family: monospace;">Rp ${formatRupiah(tx.netto)}</td>
+      </tr>
+    `
+      )
+      .join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${title} - ${namaSekolah}</title>
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 12mm 12mm 12mm 12mm;
+            }
+            body {
+              font-family: Arial, Helvetica, sans-serif;
+              font-size: 11px;
+              color: #1e293b;
+              margin: 0;
+              padding: 10px;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #0f172a;
+              padding-bottom: 10px;
+              margin-bottom: 15px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 18px;
+              text-transform: uppercase;
+              color: #0f172a;
+            }
+            .header h2 {
+              margin: 4px 0 0 0;
+              font-size: 14px;
+              color: #334155;
+              font-weight: 600;
+            }
+            .header p {
+              margin: 4px 0 0 0;
+              font-size: 11px;
+              color: #64748b;
+            }
+            .meta-info {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 12px;
+              font-size: 11px;
+              background: #f1f5f9;
+              padding: 8px 12px;
+              border-radius: 6px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th {
+              background-color: #1e293b;
+              color: #ffffff;
+              padding: 8px;
+              font-size: 11px;
+              text-align: left;
+              text-transform: uppercase;
+            }
+            th.right, td.right {
+              text-align: right;
+            }
+            th.center, td.center {
+              text-align: center;
+            }
+            .summary-box {
+              display: flex;
+              justify-content: flex-end;
+              margin-top: 10px;
+              margin-bottom: 25px;
+            }
+            .summary-table {
+              width: 320px;
+              border: 1px solid #cbd5e1;
+            }
+            .summary-table td {
+              padding: 6px 10px;
+              border-bottom: 1px solid #e2e8f0;
+            }
+            .signatures {
+              margin-top: 30px;
+              display: flex;
+              justify-content: space-between;
+              page-break-inside: avoid;
+            }
+            .sig-box {
+              text-align: center;
+              width: 260px;
+            }
+            .sig-space {
+              height: 60px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${title}</h1>
+            <h2>${namaSekolah}</h2>
+            <p>Dicetak pada: ${dateStr} | Total ${itemsToPrint.length} Transaksi</p>
+          </div>
+
+          <div class="meta-info">
+            <div>
+              <strong>Filter Terpasang:</strong> 
+              ${tipeFilter !== 'ALL' ? `Tipe: ${tipeFilter} | ` : ''}
+              ${yearFilter !== 'ALL' ? `Tahun: ${yearFilter} | ` : ''}
+              ${monthFilter !== 'ALL' ? `Bulan: ${monthFilter} | ` : ''}
+              ${jenisFilter !== 'ALL' ? `Jenis: ${jenisFilter} | ` : ''}
+              ${noSuratFilter !== 'ALL' ? `No Surat: ${noSuratFilter}` : 'Semua Data'}
+            </div>
+            <div><strong>Total Nominal:</strong> <span style="font-family: monospace; font-size: 13px;">Rp ${formatRupiah(totalAmount)}</span></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th class="center" style="width: 30px;">NO</th>
+                <th class="center" style="width: 80px;">TANGGAL</th>
+                <th style="width: 160px;">JENIS / KATEGORI</th>
+                <th style="width: 220px;">PENERIMA / VENDOR</th>
+                <th style="width: 150px;">NO. SURAT</th>
+                <th>KETERANGAN</th>
+                <th class="right" style="width: 130px;">NOMINAL NETTO</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+
+          <div class="summary-box">
+            <table class="summary-table">
+              <tr>
+                <td><strong>Total Transaksi:</strong></td>
+                <td class="right">${itemsToPrint.length} Item</td>
+              </tr>
+              <tr style="background-color: #f8fafc; font-weight: bold;">
+                <td><strong>TOTAL NETTO:</strong></td>
+                <td class="right" style="font-family: monospace; font-size: 13px; color: #0f172a;">Rp ${formatRupiah(totalAmount)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="signatures">
+            <div class="sig-box">
+              <p>Mengetahui,<br><strong>Kepala ${namaSekolah}</strong></p>
+              <div class="sig-space"></div>
+              <p style="text-decoration: underline; font-weight: bold; margin: 0;">${kepsek}</p>
+              <p style="margin: 2px 0 0 0; font-size: 10px; color: #475569;">NIP. ${nipKepsek}</p>
+            </div>
+            <div class="sig-box">
+              <p>Lembang, ${dateStr}<br><strong>Bendahara BOSP</strong></p>
+              <div class="sig-space"></div>
+              <p style="text-decoration: underline; font-weight: bold; margin: 0;">${bendahara}</p>
+              <p style="margin: 2px 0 0 0; font-size: 10px; color: #475569;">NIP. ${nipBendahara}</p>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header & Action Controls - Bento Style */}
@@ -217,6 +438,16 @@ export function TransactionTable({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            id="btn-print-database"
+            onClick={() => handlePrintTransactions(filteredTransactions, 'LAPORAN DATABASE TRANSAKSI BOSP')}
+            className="inline-flex items-center px-3.5 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700/80 cursor-pointer"
+            title="Cetak Data Transaksi BOSP"
+          >
+            <Printer className="w-4 h-4 mr-1.5 text-indigo-600 dark:text-indigo-400" />
+            Print Data
+          </button>
+
           <button
             id="btn-school-settings"
             onClick={onOpenSettings}
@@ -259,6 +490,18 @@ export function TransactionTable({
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              id="btn-print-selected"
+              onClick={() => {
+                const selectedList = transactions.filter((t) => selectedIds.includes(t.id));
+                handlePrintTransactions(selectedList, 'LAPORAN TRANSAKSI TERPILIH BOSP');
+              }}
+              className="inline-flex items-center px-3.5 py-2 text-xs font-bold text-slate-100 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-slate-700 cursor-pointer"
+            >
+              <Printer className="w-4 h-4 mr-1.5 text-indigo-400" />
+              Print Pilihan ({selectedIds.length})
+            </button>
+
             <button
               id="btn-clear-selected"
               onClick={() => onSelectAll([])}
@@ -366,8 +609,8 @@ export function TransactionTable({
               className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="ALL">Semua Tahun</option>
-              {years.map((y) => (
-                <option key={y} value={y}>
+              {years.map((y, idx) => (
+                <option key={`yr-${y}-${idx}`} value={y}>
                   Tahun {y}
                 </option>
               ))}
@@ -385,8 +628,8 @@ export function TransactionTable({
               className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="ALL">Semua Bulan</option>
-              {months.map((m) => (
-                <option key={m} value={m}>
+              {months.map((m, idx) => (
+                <option key={`mth-${m}-${idx}`} value={m}>
                   {m}
                 </option>
               ))}
@@ -404,8 +647,8 @@ export function TransactionTable({
               className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="ALL">Semua Jenis Transaksi</option>
-              {jenisList.map((j) => (
-                <option key={j} value={j}>
+              {jenisList.map((j, idx) => (
+                <option key={`jns-${j}-${idx}`} value={j}>
                   {j}
                 </option>
               ))}
@@ -428,8 +671,8 @@ export function TransactionTable({
               className="py-1.5 px-2.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white max-w-xs truncate"
             >
               <option value="ALL">-- Semua No Surat --</option>
-              {noSuratList.map((ns) => (
-                <option key={ns} value={ns}>
+              {noSuratList.map((ns, idx) => (
+                <option key={`ns-${ns}-${idx}`} value={ns}>
                   {ns}
                 </option>
               ))}
@@ -454,6 +697,16 @@ export function TransactionTable({
                 Rp {formatRupiah(totalFilteredAmount)}
               </strong>
             </span>
+
+            <button
+              id="btn-print-filtered"
+              onClick={() => handlePrintTransactions(filteredTransactions, 'LAPORAN TRANSAKSI BOSP (HASIL FILTER)')}
+              className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
+              title="Print Hasil Filter Transaksi Ini"
+            >
+              <Printer className="w-3.5 h-3.5 mr-1 text-indigo-600 dark:text-indigo-400" />
+              Print Hasil Filter ({filteredTransactions.length})
+            </button>
 
             {(searchTerm || yearFilter !== 'ALL' || monthFilter !== 'ALL' || jenisFilter !== 'ALL' || noSuratFilter !== 'ALL') && (
               <button
@@ -513,17 +766,17 @@ export function TransactionTable({
                   </td>
                 </tr>
               ) : (
-                currentItems.map((tx) => {
+                currentItems.map((tx, idx) => {
                   const isSelected = selectedIds.includes(tx.id);
                   const isMasuk =
                     tx.tipeTransaksi === 'MASUK' ||
-                    (tx.jenisTransaksi || '').toUpperCase().includes('SALUR') ||
-                    (tx.jenisTransaksi || '').toUpperCase().includes('PEMASUKAN') ||
+                    String(tx.jenisTransaksi || '').toUpperCase().includes('SALUR') ||
+                    String(tx.jenisTransaksi || '').toUpperCase().includes('PEMASUKAN') ||
                     tx.siplah === 'BOS SALUR';
 
                   return (
                     <tr
-                      key={tx.id}
+                      key={tx.id ? `tx-${tx.id}-${idx}` : `tx-row-${idx}`}
                       className={`hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-colors ${
                         isSelected ? 'bg-indigo-50/60 dark:bg-indigo-950/40' : ''
                       }`}

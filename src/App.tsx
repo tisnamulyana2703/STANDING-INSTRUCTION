@@ -250,6 +250,7 @@ export default function App() {
         <TransactionTable
           transactions={transactions}
           selectedIds={selectedIds}
+          settings={schoolSettings}
           onToggleSelect={handleToggleSelect}
           onSelectAll={handleSelectAll}
           onSelectGroupNoSurat={handleSelectGroupNoSurat}
@@ -282,6 +283,7 @@ export default function App() {
         isOpen={isSiModalOpen}
         onClose={() => setIsSiModalOpen(false)}
         selectedItems={selectedItems}
+        allTransactions={transactions}
         settings={schoolSettings}
       />
 

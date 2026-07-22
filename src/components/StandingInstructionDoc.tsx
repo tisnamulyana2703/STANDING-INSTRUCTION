@@ -196,7 +196,7 @@ export function StandingInstructionDoc({
           </thead>
           <tbody>
             {items.map((item, idx) => (
-              <tr key={item.id || idx}>
+              <tr key={item.id ? `si-doc-${item.id}-${idx}` : `si-doc-${idx}`}>
                 <td className="border border-black p-1 text-center font-sans">{idx + 1}</td>
                 <td className="border border-black p-1 font-semibold uppercase">{item.namaPenerima}</td>
                 <td className="border border-black p-1 text-center font-mono text-[9.5px]">{item.noRekPenerima || '-'}</td>

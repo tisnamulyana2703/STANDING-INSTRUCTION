@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, SchoolSettings, StandingInstructionConfig } from '../types';
 import { StandingInstructionDoc } from './StandingInstructionDoc';
 import { exportToPdf, printDocument } from '../utils/pdfGenerator';
-import { Download, Printer, X, Sliders, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
+import { Download, Printer, X, Sliders, CheckCircle2, ArrowLeft, Loader2, Filter, AlertTriangle } from 'lucide-react';
 
 interface StandingInstructionModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedItems: Transaction[];
+  allTransactions?: Transaction[];
   settings: SchoolSettings;
 }
 
@@ -15,6 +16,7 @@ export function StandingInstructionModal({
   isOpen,
   onClose,
   selectedItems,
+  allTransactions = [],
   settings,
 }: StandingInstructionModalProps) {
   const [isExporting, setIsExporting] = useState(false);
@@ -40,19 +42,67 @@ export function StandingInstructionModal({
     fontSizeScale: 'normal',
   });
 
-  // Sync if selected items change
+  // Unique No. Surat List
+  const availableNoSuratList = useMemo(() => {
+    const source = allTransactions.length > 0 ? allTransactions : selectedItems;
+    const set = new Set<string>();
+    source.forEach((t) => {
+      const ns = String(t.noSurat || '').trim();
+      if (ns) {
+        set.add(ns);
+      }
+    });
+    return Array.from(set).sort();
+  }, [allTransactions, selectedItems]);
+
+  // Sync if selected items change or modal opens
   useEffect(() => {
-    if (selectedItems.length > 0) {
-      const item = selectedItems[0];
-      setConfig((prev) => ({
-        ...prev,
-        nomorSurat: item.noSurat || prev.nomorSurat,
-        tujuanPenggunaan: item.jenisTransaksi || prev.tujuanPenggunaan,
-        tanggalSurat: item.tanggal || prev.tanggalSurat,
-        sumberDana: `BOSP REGULER ${item.tahun || '2026'}`,
-      }));
+    if (isOpen && selectedItems.length > 0) {
+      const firstWithNoSurat = selectedItems.find((item) => String(item.noSurat || '').trim() !== '');
+      const targetNoSurat = firstWithNoSurat ? String(firstWithNoSurat.noSurat).trim() : String(selectedItems[0]?.noSurat || '');
+      
+      if (targetNoSurat) {
+        const matchItem = selectedItems.find((i) => String(i.noSurat || '').trim() === targetNoSurat);
+        setConfig((prev) => ({
+          ...prev,
+          nomorSurat: targetNoSurat,
+          tujuanPenggunaan: matchItem?.jenisTransaksi || prev.tujuanPenggunaan,
+          tanggalSurat: matchItem?.tanggal || prev.tanggalSurat,
+          sumberDana: `BOSP REGULER ${matchItem?.tahun || '2026'}`,
+        }));
+      }
     }
-  }, [selectedItems]);
+  }, [isOpen, selectedItems]);
+
+  // STRICTLY FILTER preview items by active config.nomorSurat
+  const filteredItemsForDoc = useMemo(() => {
+    const activeNoSurat = String(config.nomorSurat || '').trim();
+    if (!activeNoSurat) {
+      return selectedItems;
+    }
+
+    // 1. Try filtering selectedItems by activeNoSurat (case-insensitive)
+    const matchesFromSelected = selectedItems.filter(
+      (t) => String(t.noSurat || '').trim().toLowerCase() === activeNoSurat.toLowerCase()
+    );
+
+    if (matchesFromSelected.length > 0) {
+      return matchesFromSelected;
+    }
+
+    // 2. Search in allTransactions if user picked a No. Surat not in currently checked checkboxes
+    if (allTransactions.length > 0) {
+      const matchesFromAll = allTransactions.filter(
+        (t) => String(t.noSurat || '').trim().toLowerCase() === activeNoSurat.toLowerCase()
+      );
+      if (matchesFromAll.length > 0) {
+        return matchesFromAll;
+      }
+    }
+
+    // 3. Fallback if custom text entered
+    return selectedItems;
+  }, [config.nomorSurat, selectedItems, allTransactions]);
 
   if (!isOpen) return null;
 
@@ -84,6 +134,18 @@ export function StandingInstructionModal({
     });
   };
 
+  const handleSelectNoSuratFromList = (noSuratVal: string) => {
+    const source = allTransactions.length > 0 ? allTransactions : selectedItems;
+    const match = source.find((t) => String(t.noSurat || '').trim() === noSuratVal.trim());
+    setConfig((prev) => ({
+      ...prev,
+      nomorSurat: noSuratVal,
+      tujuanPenggunaan: match?.jenisTransaksi || prev.tujuanPenggunaan,
+      tanggalSurat: match?.tanggal || prev.tanggalSurat,
+      sumberDana: match?.tahun ? `BOSP REGULER ${match.tahun}` : prev.sumberDana,
+    }));
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className="bg-slate-100 dark:bg-slate-950 rounded-3xl w-full max-w-7xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -93,7 +155,7 @@ export function StandingInstructionModal({
           <div className="flex items-center space-x-3">
             <button
               onClick={onClose}
-              className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               title="Kembali"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -102,11 +164,11 @@ export function StandingInstructionModal({
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 Preview Standing Instruction
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
-                  {selectedItems.length} Penerima
+                  {filteredItemsForDoc.length} Penerima (No. Surat Filtered)
                 </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Dokumen resmi permohonan pemindahbukuan ke Bank BJB
+                Dokumen resmi permohonan pemindahbukuan ke Bank BJB khusus Nomor Surat ini
               </p>
             </div>
           </div>
@@ -115,7 +177,7 @@ export function StandingInstructionModal({
             <button
               id="btn-print-si"
               onClick={handlePrint}
-              className="inline-flex items-center px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700/80"
+              className="inline-flex items-center px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700/80 cursor-pointer"
             >
               <Printer className="w-4 h-4 mr-1.5" />
               Cetak Document
@@ -125,7 +187,7 @@ export function StandingInstructionModal({
               id="btn-download-pdf-si"
               onClick={handleDownloadPdf}
               disabled={isExporting}
-              className="inline-flex items-center px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs disabled:opacity-50 transition-colors"
+              className="inline-flex items-center px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
             >
               {isExporting ? (
                 <>
@@ -142,7 +204,7 @@ export function StandingInstructionModal({
 
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -162,10 +224,35 @@ export function StandingInstructionModal({
             </div>
 
             <div className="space-y-3.5 text-xs">
+              
+              {/* NO SURAT SELECTOR & INPUT */}
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Nomor Surat SI
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Nomor Surat SI (Terfilter)</span>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                    {filteredItemsForDoc.length} data
+                  </span>
                 </label>
+
+                {availableNoSuratList.length > 0 && (
+                  <select
+                    value={availableNoSuratList.includes(config.nomorSurat) ? config.nomorSurat : 'CUSTOM'}
+                    onChange={(e) => {
+                      if (e.target.value !== 'CUSTOM') {
+                        handleSelectNoSuratFromList(e.target.value);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-[11px] cursor-pointer"
+                  >
+                    <option value="CUSTOM">-- Pilih No. Surat dari Database --</option>
+                    {availableNoSuratList.map((ns) => (
+                      <option key={ns} value={ns}>
+                        {ns}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 <input
                   type="text"
                   value={config.nomorSurat}
@@ -258,7 +345,7 @@ export function StandingInstructionModal({
                         fontSizeScale: 'normal',
                       })
                     }
-                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold"
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer"
                   >
                     Reset Default
                   </button>
@@ -353,21 +440,31 @@ export function StandingInstructionModal({
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                  💡 <strong>Info:</strong> Atur margin dan kepadatan teks agar dokumen tercetak pas dalam kertas tanpa terpotong. Data pejabat penandatangan diambil dari menu Pengaturan Sekolah.
+                  💡 <strong>Filter Otomatis:</strong> Dokumen SI ini hanya menampilkan transaksi yang memiliki No. Surat persis sama dengan parameter Nomor Surat di atas.
                 </p>
               </div>
             </div>
           </div>
 
           {/* LIVE A4 CANVAS PREVIEW */}
-          <div className="lg:col-span-8 flex justify-center overflow-x-auto pb-6">
-            <div className="transform scale-[0.82] sm:scale-90 origin-top shadow-xl">
-              <StandingInstructionDoc
-                settings={settings}
-                config={config}
-                items={selectedItems}
-              />
-            </div>
+          <div className="lg:col-span-8 flex flex-col items-center overflow-x-auto pb-6">
+            {filteredItemsForDoc.length === 0 ? (
+              <div className="w-full max-w-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 rounded-2xl p-6 text-center text-amber-900 dark:text-amber-200 my-10 space-y-3">
+                <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-400 mx-auto" />
+                <p className="font-bold text-sm">Tidak Ada Transaksi untuk No. Surat Ini</p>
+                <p className="text-xs text-amber-800 dark:text-amber-300">
+                  Tidak ditemukan transaksi yang sesuai dengan Nomor Surat <code className="font-mono bg-amber-100 dark:bg-amber-900 px-1.5 py-0.5 rounded font-bold">{config.nomorSurat}</code>. Pilih No. Surat dari dropdown di bilah kiri.
+                </p>
+              </div>
+            ) : (
+              <div className="transform scale-[0.82] sm:scale-90 origin-top shadow-xl">
+                <StandingInstructionDoc
+                  settings={settings}
+                  config={config}
+                  items={filteredItemsForDoc}
+                />
+              </div>
+            )}
           </div>
 
         </div>
@@ -375,3 +472,4 @@ export function StandingInstructionModal({
     </div>
   );
 }
+

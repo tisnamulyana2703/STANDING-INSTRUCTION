@@ -42,7 +42,7 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
   // Extract unique years from transactions
   const availableYears = useMemo(() => {
     const list = Array.from(
-      new Set(transactions.map((t) => (t.tahun || '').trim()).filter(Boolean))
+      new Set(transactions.map((t) => String(t.tahun || '').trim()).filter(Boolean))
     );
     return list.sort((a, b) => b.localeCompare(a));
   }, [transactions]);
@@ -51,8 +51,8 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
   const stats = useMemo(() => {
     // Filter transactions by selected year & month
     const filtered = transactions.filter((tx) => {
-      if (selectedYear !== 'ALL' && (tx.tahun || '').trim() !== selectedYear) return false;
-      if (selectedMonth !== 'ALL' && (tx.bulan || '').trim() !== selectedMonth) return false;
+      if (selectedYear !== 'ALL' && String(tx.tahun || '').trim() !== selectedYear) return false;
+      if (selectedMonth !== 'ALL' && String(tx.bulan || '').trim() !== selectedMonth) return false;
       return true;
     });
 
@@ -65,9 +65,9 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
     const yearMap: Record<string, { count: number; amount: number }> = {};
 
     filtered.forEach((tx) => {
-      const jenis = (tx.jenisTransaksi || '').toUpperCase();
-      const siplah = (tx.siplah || '').toUpperCase();
-      const vendorName = (tx.vendor || '').toUpperCase().trim();
+      const jenis = String(tx.jenisTransaksi || '').toUpperCase();
+      const siplah = String(tx.siplah || '').toUpperCase();
+      const vendorName = String(tx.vendor || '').toUpperCase().trim();
       const tipe = tx.tipeTransaksi;
 
       const isPemasukan =
@@ -85,7 +85,7 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
         totalPengeluaran += amount;
 
         // Group expense categories for Infografis
-        let cat = (tx.kategori || '').trim().toUpperCase();
+        let cat = String(tx.kategori || '').trim().toUpperCase();
         if (!cat) cat = 'JASA KANTOR';
 
         if (!catMap[cat]) catMap[cat] = { count: 0, amount: 0 };
@@ -100,7 +100,7 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
       }
 
       // Group years
-      const yr = (tx.tahun || '2024').trim();
+      const yr = String(tx.tahun || '2024').trim();
       if (!yearMap[yr]) yearMap[yr] = { count: 0, amount: 0 };
       yearMap[yr].count += 1;
       yearMap[yr].amount += amount;
