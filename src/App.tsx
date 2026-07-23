@@ -9,9 +9,11 @@ import { AddEditTransactionModal } from './components/AddEditTransactionModal';
 import { SchoolSettingsModal } from './components/SchoolSettingsModal';
 import { CategoryManagementModal, DEFAULT_CATEGORIES } from './components/CategoryManagementModal';
 import { ImportExportModal } from './components/ImportExportModal';
+import { ActivationModal } from './components/ActivationModal';
+import { getStoredLicenseInfo, verifySerialNumber, getMachineId } from './utils/licenseUtils';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
-import { Sun, Moon, Settings, Store, Cloud, FileSpreadsheet } from 'lucide-react';
+import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck } from 'lucide-react';
 import { sanitizeSchoolSettingsForSync, ensureTransactionIds } from './utils/googleAppsScript';
 
 export default function App() {
@@ -82,6 +84,14 @@ export default function App() {
   });
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // License Activation State
+  const [isActivated, setIsActivated] = useState<boolean>(() => {
+    const info = getStoredLicenseInfo();
+    const mid = getMachineId(schoolSettings?.namaSekolah || DEFAULT_SCHOOL_SETTINGS.namaSekolah, schoolSettings?.alamatSekolah || DEFAULT_SCHOOL_SETTINGS.alamatSekolah);
+    return info.isActivated && verifySerialNumber(info.serialKey, mid);
+  });
+  const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
 
   // Modal States
   const [isSiModalOpen, setIsSiModalOpen] = useState(false);
@@ -343,9 +353,13 @@ export default function App() {
                 <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
                   {schoolSettings.namaSekolah || 'SD NEGERI CIBURIAL'}
                 </h1>
-                <div className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 rounded-full border border-emerald-100 dark:border-emerald-800 text-[10px] font-semibold">
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                  <span>BOSP Active Database</span>
+                <div className={`hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-semibold ${
+                  isActivated
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800'
+                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-800'
+                }`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${isActivated ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
+                  <span>{isActivated ? 'Lisensi Teraktivasi ✓' : 'Lisensi Belum Teraktivasi'}</span>
                 </div>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -355,6 +369,19 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsActivationModalOpen(true)}
+              className={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border ${
+                isActivated
+                  ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  : 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black border-amber-400 shadow-sm animate-bounce'
+              }`}
+              title="Status Aktivasi & Serial Number Application"
+            >
+              <KeyRound className="w-4 h-4" />
+              <span className="hidden sm:inline">{isActivated ? 'Lisensi Aktif' : 'Aktivasi Serial'}</span>
+            </button>
+
             <button
               onClick={() => setIsImportExportModalOpen(true)}
               className="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
@@ -517,6 +544,18 @@ export default function App() {
           syncToGoogleSheets(transactions, schoolSettings, newVendors);
         }}
         onResetDefault={handleResetDefault}
+      />
+
+      {/* 6. ACTIVATION / SERIAL NUMBER MODAL */}
+      <ActivationModal
+        isOpen={!isActivated || isActivationModalOpen}
+        onClose={() => setIsActivationModalOpen(false)}
+        isLockScreen={!isActivated}
+        schoolSettings={schoolSettings}
+        onActivationSuccess={() => {
+          setIsActivated(true);
+          setIsActivationModalOpen(false);
+        }}
       />
     </div>
   );
