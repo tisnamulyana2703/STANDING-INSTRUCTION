@@ -7,6 +7,7 @@ import { TransactionTable } from './components/TransactionTable';
 import { StandingInstructionModal } from './components/StandingInstructionModal';
 import { AddEditTransactionModal } from './components/AddEditTransactionModal';
 import { SchoolSettingsModal } from './components/SchoolSettingsModal';
+import { CategoryManagementModal, DEFAULT_CATEGORIES } from './components/CategoryManagementModal';
 import { ImportExportModal } from './components/ImportExportModal';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
@@ -65,13 +66,29 @@ export default function App() {
     return DEFAULT_VENDORS;
   });
 
+  const [categories, setCategories] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bosp_categories');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse categories:', e);
+      }
+    }
+    return DEFAULT_CATEGORIES;
+  });
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Modal States
   const [isSiModalOpen, setIsSiModalOpen] = useState(false);
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<'school' | 'vendors'>('school');
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'school' | 'vendors' | 'categories'>('school');
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
 
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
@@ -88,6 +105,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('bosp_vendors_db', JSON.stringify(vendors));
   }, [vendors]);
+
+  useEffect(() => {
+    localStorage.setItem('bosp_categories', JSON.stringify(categories));
+  }, [categories]);
 
   // Helper to push to Google Sheets automatically if URL exists
   const syncToGoogleSheets = async (
@@ -436,13 +457,17 @@ export default function App() {
         initialData={editingTx}
         nextNo={transactions.length > 0 ? Math.max(...transactions.map((t) => t.no || 0)) + 1 : 1}
         vendors={vendors}
+        categories={categories}
         onOpenVendorSettings={() => {
           setSettingsInitialTab('vendors');
           setIsSettingsModalOpen(true);
         }}
+        onOpenCategoryManagement={() => {
+          setIsCategoryModalOpen(true);
+        }}
       />
 
-      {/* 3. SCHOOL HEADER & VENDOR SETTINGS MODAL */}
+      {/* 3. SCHOOL HEADER, VENDOR & CATEGORY SETTINGS MODAL */}
       <SchoolSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
@@ -456,10 +481,26 @@ export default function App() {
           setVendors(newVendors);
           syncToGoogleSheets(transactions, schoolSettings, newVendors);
         }}
+        categories={categories}
+        onSaveCategories={(newCategories) => {
+          setCategories(newCategories);
+        }}
+        transactions={transactions}
         initialTab={settingsInitialTab}
       />
 
-      {/* 4. IMPORT / EXPORT MODAL */}
+      {/* 4. CATEGORY MANAGEMENT MODAL */}
+      <CategoryManagementModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categories={categories}
+        onSaveCategories={(newCategories) => {
+          setCategories(newCategories);
+        }}
+        transactions={transactions}
+      />
+
+      {/* 5. IMPORT / EXPORT MODAL */}
       <ImportExportModal
         isOpen={isImportExportModalOpen}
         onClose={() => setIsImportExportModalOpen(false)}

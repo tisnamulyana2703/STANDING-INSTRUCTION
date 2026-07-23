@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Transaction, Vendor } from '../types';
-import { X, Save, PlusCircle, Store, Settings } from 'lucide-react';
+import { X, Save, PlusCircle, Store, Settings, FolderPlus } from 'lucide-react';
+import { DEFAULT_CATEGORIES } from './CategoryManagementModal';
 
 interface AddEditTransactionModalProps {
   isOpen: boolean;
@@ -9,7 +10,9 @@ interface AddEditTransactionModalProps {
   initialData?: Transaction | null;
   nextNo: number;
   vendors: Vendor[];
+  categories?: string[];
   onOpenVendorSettings?: () => void;
+  onOpenCategoryManagement?: () => void;
 }
 
 const INDONESIAN_MONTHS = [
@@ -84,7 +87,9 @@ export function AddEditTransactionModal({
   initialData,
   nextNo,
   vendors,
+  categories = DEFAULT_CATEGORIES,
   onOpenVendorSettings,
+  onOpenCategoryManagement,
 }: AddEditTransactionModalProps) {
   const [dateIso, setDateIso] = useState('');
   const [formData, setFormData] = useState<Partial<Transaction>>({
@@ -461,20 +466,32 @@ export function AddEditTransactionModal({
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Kategori Belanja
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-medium text-slate-700 dark:text-slate-300">
+                    Kategori Belanja
+                  </label>
+                  {onOpenCategoryManagement && (
+                    <button
+                      type="button"
+                      onClick={onOpenCategoryManagement}
+                      className="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer"
+                    >
+                      <FolderPlus className="w-3 h-3" />
+                      + Kelola Kategori
+                    </button>
+                  )}
+                </div>
                 <select
                   value={formData.kategori || 'JASA KANTOR'}
                   onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium cursor-pointer"
                 >
-                  {KATEGORI_OPTIONS.map((cat) => (
+                  {categories.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>
                   ))}
-                  {formData.kategori && !KATEGORI_OPTIONS.includes(formData.kategori) && (
+                  {formData.kategori && !categories.includes(formData.kategori) && (
                     <option value={formData.kategori}>{formData.kategori}</option>
                   )}
                 </select>

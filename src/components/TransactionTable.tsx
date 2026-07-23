@@ -58,6 +58,7 @@ export function TransactionTable({
   const [yearFilter, setYearFilter] = useState('ALL');
   const [monthFilter, setMonthFilter] = useState('ALL');
   const [jenisFilter, setJenisFilter] = useState('ALL');
+  const [kategoriFilter, setKategoriFilter] = useState('ALL');
   const [noSuratFilter, setNoSuratFilter] = useState('ALL');
   const [tipeFilter, setTipeFilter] = useState<'ALL' | 'KELUAR' | 'MASUK'>('ALL');
   
@@ -113,6 +114,10 @@ export function TransactionTable({
     return Array.from(new Set(transactions.map((t) => String(t.jenisTransaksi || '')).filter(Boolean))).sort();
   }, [transactions]);
 
+  const kategoriList = useMemo(() => {
+    return Array.from(new Set(transactions.map((t) => String(t.kategori || '').trim()).filter(Boolean))).sort();
+  }, [transactions]);
+
   const noSuratList = useMemo(() => {
     return Array.from(new Set(transactions.map((t) => String(t.noSurat || '')).filter(Boolean))).sort();
   }, [transactions]);
@@ -145,6 +150,7 @@ export function TransactionTable({
       if (yearFilter !== 'ALL' && String(tx.tahun) !== yearFilter) return false;
       if (monthFilter !== 'ALL' && String(tx.bulan) !== monthFilter) return false;
       if (jenisFilter !== 'ALL' && String(tx.jenisTransaksi) !== jenisFilter) return false;
+      if (kategoriFilter !== 'ALL' && String(tx.kategori || '').trim().toUpperCase() !== kategoriFilter.trim().toUpperCase()) return false;
       if (noSuratFilter !== 'ALL' && String(tx.noSurat) !== noSuratFilter) return false;
 
       if (searchTerm.trim()) {
@@ -172,7 +178,7 @@ export function TransactionTable({
       }
       return (b.no || 0) - (a.no || 0);
     });
-  }, [transactions, tipeFilter, yearFilter, monthFilter, jenisFilter, noSuratFilter, searchTerm]);
+  }, [transactions, tipeFilter, yearFilter, monthFilter, jenisFilter, kategoriFilter, noSuratFilter, searchTerm]);
 
   // Total pages & pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
@@ -184,8 +190,37 @@ export function TransactionTable({
   const pageIds = useMemo(() => currentItems.map((i) => i.id), [currentItems]);
   const isAllPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
 
-  const totalFilteredAmount = useMemo(() => {
-    return filteredTransactions.reduce((acc, curr) => acc + (curr.netto || 0), 0);
+  // Calculation for Filter Netto breakdown (Pemasukan, Pengeluaran, Netto)
+  const { totalPemasukanFilter, totalPengeluaranFilter, nettoSaldoFilter } = useMemo(() => {
+    let masuk = 0;
+    let keluar = 0;
+
+    filteredTransactions.forEach((tx) => {
+      const jenis = String(tx.jenisTransaksi || '').toUpperCase();
+      const siplah = String(tx.siplah || '').toUpperCase();
+      const vendorName = String(tx.vendor || '').toUpperCase().trim();
+      const tipe = tx.tipeTransaksi;
+
+      const isPemasukan =
+        tipe === 'MASUK' ||
+        jenis.includes('SALUR') ||
+        jenis.includes('PEMASUKAN') ||
+        siplah === 'BOS SALUR' ||
+        vendorName === 'BOS SALUR';
+
+      const amt = Number(tx.netto) || 0;
+      if (isPemasukan) {
+        masuk += amt;
+      } else {
+        keluar += amt;
+      }
+    });
+
+    return {
+      totalPemasukanFilter: masuk,
+      totalPengeluaranFilter: keluar,
+      nettoSaldoFilter: masuk - keluar,
+    };
   }, [filteredTransactions]);
 
   const resetFilters = () => {
@@ -193,7 +228,9 @@ export function TransactionTable({
     setYearFilter('ALL');
     setMonthFilter('ALL');
     setJenisFilter('ALL');
+    setKategoriFilter('ALL');
     setNoSuratFilter('ALL');
+    setTipeFilter('ALL');
     setCurrentPage(1);
   };
 
@@ -553,7 +590,7 @@ export function TransactionTable({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
           {/* Search Box */}
           <div className="relative md:col-span-2">
             <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -577,7 +614,7 @@ export function TransactionTable({
                 setYearFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
             >
               <option value="ALL">Semua Tahun</option>
               {years.map((y, idx) => (
@@ -596,7 +633,7 @@ export function TransactionTable({
                 setMonthFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
             >
               <option value="ALL">Semua Bulan</option>
               {months.map((m, idx) => (
@@ -615,12 +652,31 @@ export function TransactionTable({
                 setJenisFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
             >
-              <option value="ALL">Semua Jenis Transaksi</option>
+              <option value="ALL">Semua Jenis</option>
               {jenisList.map((j, idx) => (
                 <option key={`jns-${j}-${idx}`} value={j}>
                   {j}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Kategori Filter */}
+          <div>
+            <select
+              value={kategoriFilter}
+              onChange={(e) => {
+                setKategoriFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full py-2.5 px-3 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+            >
+              <option value="ALL">Semua Kategori</option>
+              {kategoriList.map((k, idx) => (
+                <option key={`ktg-${k}-${idx}`} value={k}>
+                  {k}
                 </option>
               ))}
             </select>
@@ -667,11 +723,25 @@ export function TransactionTable({
             )}
           </div>
 
-          <div className="flex items-center space-x-3 text-xs">
-            <span className="text-slate-500">
-              Total Filter Netto:{' '}
-              <strong className="font-mono text-slate-900 dark:text-white font-bold">
-                Rp {formatRupiah(totalFilteredAmount)}
+          <div className="flex items-center space-x-3 text-xs flex-wrap gap-y-1">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">
+              Pemasukan (Filter):{' '}
+              <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                Rp {formatRupiah(totalPemasukanFilter)}
+              </strong>
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span className="text-slate-500 dark:text-slate-400 font-medium">
+              Pengeluaran (Filter):{' '}
+              <strong className="font-mono text-rose-600 dark:text-rose-400 font-bold">
+                Rp {formatRupiah(totalPengeluaranFilter)}
+              </strong>
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span className="text-slate-500 dark:text-slate-400 font-medium">
+              Total Filter Netto (Saldo):{' '}
+              <strong className={`font-mono font-bold ${nettoSaldoFilter >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                Rp {formatRupiah(nettoSaldoFilter)}
               </strong>
             </span>
 
@@ -685,11 +755,11 @@ export function TransactionTable({
               Print Hasil Filter ({filteredTransactions.length})
             </button>
 
-            {(searchTerm || yearFilter !== 'ALL' || monthFilter !== 'ALL' || jenisFilter !== 'ALL' || noSuratFilter !== 'ALL') && (
+            {(searchTerm || yearFilter !== 'ALL' || monthFilter !== 'ALL' || jenisFilter !== 'ALL' || kategoriFilter !== 'ALL' || noSuratFilter !== 'ALL' || tipeFilter !== 'ALL') && (
               <button
                 id="btn-reset-filters"
                 onClick={resetFilters}
-                className="inline-flex items-center text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold hover:underline"
+                className="inline-flex items-center text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold hover:underline cursor-pointer"
               >
                 <RefreshCw className="w-3 h-3 mr-1" />
                 Reset Filter

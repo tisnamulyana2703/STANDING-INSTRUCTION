@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { SchoolSettings, Vendor } from '../types';
-import { X, Save, Building2, UserCheck, ShieldCheck, Store, Plus, Edit2, Trash2, Search, CheckCircle } from 'lucide-react';
+import { SchoolSettings, Vendor, Transaction } from '../types';
+import { X, Save, Building2, UserCheck, ShieldCheck, Store, Plus, Edit2, Trash2, Search, CheckCircle, FolderPlus, RotateCcw } from 'lucide-react';
+import { DEFAULT_CATEGORIES } from './CategoryManagementModal';
 
 interface SchoolSettingsModalProps {
   isOpen: boolean;
@@ -9,7 +10,10 @@ interface SchoolSettingsModalProps {
   onSave: (newSettings: SchoolSettings) => void;
   vendors: Vendor[];
   onSaveVendors: (newVendors: Vendor[]) => void;
-  initialTab?: 'school' | 'vendors';
+  categories?: string[];
+  onSaveCategories?: (newCategories: string[]) => void;
+  transactions?: Transaction[];
+  initialTab?: 'school' | 'vendors' | 'categories';
 }
 
 export function SchoolSettingsModal({
@@ -19,11 +23,18 @@ export function SchoolSettingsModal({
   onSave,
   vendors,
   onSaveVendors,
+  categories = DEFAULT_CATEGORIES,
+  onSaveCategories,
+  transactions = [],
   initialTab = 'school',
 }: SchoolSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'school' | 'vendors'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'school' | 'vendors' | 'categories'>(initialTab);
   const [formData, setFormData] = useState<SchoolSettings>(settings);
   const [vendorList, setVendorList] = useState<Vendor[]>(vendors);
+
+  // Category management state inside tab
+  const [newCatInput, setNewCatInput] = useState('');
+  const [catSearch, setCatSearch] = useState('');
   
   // Vendor form state
   const [editingVendorId, setEditingVendorId] = useState<string | null>(null);
@@ -253,6 +264,21 @@ export function SchoolSettingsModal({
             <span>Database Vendor / Toko</span>
             <span className="ml-1 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-[10px]">
               {vendorList.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('categories')}
+            className={`px-4 py-2.5 font-bold text-xs rounded-t-xl transition-all flex items-center gap-2 border-b-2 ${
+              activeTab === 'categories'
+                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border-transparent'
+            }`}
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span>Kategori Belanja</span>
+            <span className="ml-1 bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-[10px]">
+              {categories.length}
             </span>
           </button>
         </div>
@@ -797,6 +823,124 @@ export function SchoolSettingsModal({
                 type="button"
                 onClick={onClose}
                 className="px-4 py-2.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl transition-colors"
+              >
+                Selesai / Tutup
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: CATEGORY MANAGEMENT */}
+        {activeTab === 'categories' && (
+          <div className="p-6 space-y-5 text-xs max-h-[70vh] overflow-y-auto">
+            {/* Form Tambah Kategori */}
+            <div className="bg-indigo-50/60 dark:bg-slate-800/60 border border-indigo-100 dark:border-slate-700 p-4 rounded-2xl space-y-2">
+              <h4 className="font-bold text-indigo-950 dark:text-indigo-300 text-xs uppercase tracking-wider">
+                + Tambah Kategori Belanja Baru
+              </h4>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newCatInput}
+                  onChange={(e) => setNewCatInput(e.target.value)}
+                  placeholder="Ketik nama kategori baru..."
+                  className="flex-1 px-3.5 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trimmed = newCatInput.trim().toUpperCase();
+                    if (!trimmed) return;
+                    if (categories.includes(trimmed)) {
+                      alert(`Kategori "${trimmed}" sudah ada!`);
+                      return;
+                    }
+                    const updated = [...categories, trimmed];
+                    if (onSaveCategories) onSaveCategories(updated);
+                    setNewCatInput('');
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors inline-flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  Tambah
+                </button>
+              </div>
+            </div>
+
+            {/* Header & Reset */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="relative flex-1 max-w-xs">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={catSearch}
+                  onChange={(e) => setCatSearch(e.target.value)}
+                  placeholder="Cari kategori..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Kembalikan daftar kategori ke standar default BOSP?')) {
+                    const merged = Array.from(new Set([...DEFAULT_CATEGORIES, ...categories]));
+                    if (onSaveCategories) onSaveCategories(merged);
+                  }
+                }}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <span>Reset Standar</span>
+              </button>
+            </div>
+
+            {/* List Kategori */}
+            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+              {categories
+                .filter((c) => c.toLowerCase().includes(catSearch.toLowerCase()))
+                .map((cat, idx) => {
+                  const usage = transactions.filter(
+                    (t) => String(t.kategori || '').trim().toUpperCase() === cat.toUpperCase()
+                  ).length;
+
+                  return (
+                    <div key={`tab-cat-${cat}-${idx}`} className="p-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                      <div className="flex items-center space-x-3">
+                        <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-mono font-bold flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <p className="font-bold text-slate-800 dark:text-slate-200">{cat}</p>
+                          <p className="text-[10px] text-slate-400">
+                            {usage > 0 ? `Digunakan pada ${usage} transaksi` : 'Belum digunakan'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Yakin ingin menghapus kategori "${cat}"?`)) {
+                            const updated = categories.filter((c) => c !== cat);
+                            if (onSaveCategories) onSaveCategories(updated);
+                          }
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                        title="Hapus Kategori"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-xl transition-colors cursor-pointer"
               >
                 Selesai / Tutup
               </button>
