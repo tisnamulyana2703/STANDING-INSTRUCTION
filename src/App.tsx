@@ -25,11 +25,6 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // If stored data is the old initial sample dataset (contains 539 items or sample noSurat), clear it
-          if (parsed.length > 500 && parsed[0]?.noSurat === '240221302000130') {
-            localStorage.setItem('bosp_transactions_db', JSON.stringify([]));
-            return [];
-          }
           return parsed;
         }
       } catch (e) {
@@ -44,11 +39,9 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed?.namaSekolah === 'SD NEGERI CIBURIAL' || parsed?.kepalaSekolah?.nama?.includes('CARNIA')) {
-          localStorage.setItem('bosp_school_settings', JSON.stringify(DEFAULT_SCHOOL_SETTINGS));
-          return DEFAULT_SCHOOL_SETTINGS;
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
         }
-        return parsed;
       } catch (e) {
         console.error('Failed to parse school settings:', e);
       }
@@ -62,10 +55,6 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          if (parsed.some((v) => v.id === 'vendor-2' || v.nama?.includes('MEDIA SARANA'))) {
-            localStorage.setItem('bosp_vendors_db', JSON.stringify(DEFAULT_VENDORS));
-            return DEFAULT_VENDORS;
-          }
           return parsed;
         }
       } catch (e) {
@@ -98,6 +87,65 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('bosp_vendors_db', JSON.stringify(vendors));
   }, [vendors]);
+
+  // Helper to push to Google Sheets automatically if URL exists
+  const syncToGoogleSheets = async (
+    txList: Transaction[],
+    settings: SchoolSettings,
+    vendorList: Vendor[]
+  ) => {
+    const scriptUrl = localStorage.getItem('bosp_apps_script_url');
+    if (!scriptUrl) return;
+    try {
+      await fetch(scriptUrl.trim(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'sync_all',
+          transactions: txList,
+          schoolSettings: settings,
+          vendors: vendorList,
+        }),
+      });
+    } catch (e) {
+      console.warn('Background sync to Google Sheets warning:', e);
+    }
+  };
+
+  // Auto pull from Google Sheets on app startup if URL is configured
+  useEffect(() => {
+    const scriptUrl = localStorage.getItem('bosp_apps_script_url');
+    if (!scriptUrl) return;
+
+    fetch(scriptUrl.trim())
+      .then((res) => res.json())
+      .then((result) => {
+        if (result.status === 'success') {
+          // 1. Transactions
+          const txList = Array.isArray(result.transactions)
+            ? result.transactions
+            : Array.isArray(result.data)
+            ? result.data
+            : [];
+          if (txList.length > 0) {
+            setTransactions(txList);
+          }
+
+          // 2. School Settings
+          if (result.schoolSettings && result.schoolSettings.namaSekolah) {
+            setSchoolSettings(result.schoolSettings);
+          }
+
+          // 3. Vendors
+          if (Array.isArray(result.vendors) && result.vendors.length > 0) {
+            setVendors(result.vendors);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Startup fetch from Google Sheets warning:', err);
+      });
+  }, []);
 
   useEffect(() => {
     if (darkMode) {
@@ -145,32 +193,41 @@ export default function App() {
 
   // Save/Update transaction
   const handleSaveTransaction = (tx: Transaction) => {
+    let updatedTxList: Transaction[] = [];
     setTransactions((prev) => {
       const idx = prev.findIndex((t) => t.id === tx.id);
       if (idx >= 0) {
         const copy = [...prev];
         copy[idx] = tx;
+        updatedTxList = copy;
         return copy;
       } else {
-        return [tx, ...prev];
+        updatedTxList = [tx, ...prev];
+        return updatedTxList;
       }
     });
+    syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
   };
 
   const handleDeleteTransaction = (id: string) => {
     if (confirm('Apakah Anda yakin ingin menghapus data transaksi ini?')) {
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
+      const filtered = transactions.filter((t) => t.id !== id);
+      setTransactions(filtered);
       setSelectedIds((prev) => prev.filter((i) => i !== id));
+      syncToGoogleSheets(filtered, schoolSettings, vendors);
     }
   };
 
   // Import / Reset dataset
   const handleImportTransactions = (newItems: Transaction[], append: boolean) => {
+    let updated: Transaction[] = [];
     if (append) {
-      setTransactions((prev) => [...newItems, ...prev]);
+      updated = [...newItems, ...transactions];
     } else {
-      setTransactions(newItems);
+      updated = newItems;
     }
+    setTransactions(updated);
+    syncToGoogleSheets(updated, schoolSettings, vendors);
   };
 
   const handleResetDefault = () => {
@@ -332,9 +389,15 @@ export default function App() {
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         settings={schoolSettings}
-        onSave={(newSettings) => setSchoolSettings(newSettings)}
+        onSave={(newSettings) => {
+          setSchoolSettings(newSettings);
+          syncToGoogleSheets(transactions, newSettings, vendors);
+        }}
         vendors={vendors}
-        onSaveVendors={(newVendors) => setVendors(newVendors)}
+        onSaveVendors={(newVendors) => {
+          setVendors(newVendors);
+          syncToGoogleSheets(transactions, schoolSettings, newVendors);
+        }}
         initialTab={settingsInitialTab}
       />
 
@@ -343,7 +406,17 @@ export default function App() {
         isOpen={isImportExportModalOpen}
         onClose={() => setIsImportExportModalOpen(false)}
         transactions={transactions}
+        schoolSettings={schoolSettings}
+        vendors={vendors}
         onImport={handleImportTransactions}
+        onImportSchoolSettings={(newSettings) => {
+          setSchoolSettings(newSettings);
+          syncToGoogleSheets(transactions, newSettings, vendors);
+        }}
+        onImportVendors={(newVendors) => {
+          setVendors(newVendors);
+          syncToGoogleSheets(transactions, schoolSettings, newVendors);
+        }}
         onResetDefault={handleResetDefault}
       />
     </div>

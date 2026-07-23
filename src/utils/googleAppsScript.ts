@@ -18,42 +18,45 @@ export const GoogleAppsScriptCode = `/**
  * 9. Tempelkan (Paste) URL tersebut pada aplikasi Si-Standing BOSP.
  */
 
-/**
- * =========================================================================
- * FUNGSI SETUP DATABASE MANUAL (Bisa dijalankan langsung di Apps Script)
- * =========================================================================
- */
 function setupDatabase() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = getOrCreateSheet(ss, "DATABASE_TRANSAKSI");
   
-  var headers = [
+  // 1. DATABASE_TRANSAKSI
+  var sheetTx = getOrCreateSheet(ss, "DATABASE_TRANSAKSI");
+  var headersTx = [
     "NO", "TANGGAL", "TIPE TRANSAKSI", "JENIS TRANSAKSI", "NO. SURAT",
     "NAMA PENERIMA", "NO. REK PENERIMA", "NAMA BANK", "PPh", "PPN",
     "NETTO", "SIPLAH", "NO. PO", "KETERANGAN", "VENDOR",
     "STATUS SI", "BULAN", "TAHUN", "DESKRIPSI FULL", "KATEGORI"
   ];
+  setSheetHeader(sheetTx, headersTx);
+
+  // 2. INFORMASI_SEKOLAH
+  var sheetInfo = getOrCreateSheet(ss, "INFORMASI_SEKOLAH");
+  var headersInfo = ["PROPERTY", "VALUE"];
+  setSheetHeader(sheetInfo, headersInfo);
+
+  // 3. DATABASE_VENDOR
+  var sheetVendor = getOrCreateSheet(ss, "DATABASE_VENDOR");
+  var headersVendor = ["ID", "NAMA_VENDOR", "ALAMAT", "NO_HP", "NPWP"];
+  setSheetHeader(sheetVendor, headersVendor);
   
-  // Jika sheet masih kosong, isi dengan header
+  SpreadsheetApp.getUi().alert("✅ Database BOSP Berhasil Disiapkan!\nSheet 'DATABASE_TRANSAKSI', 'INFORMASI_SEKOLAH', & 'DATABASE_VENDOR' siap digunakan.");
+  return "Setup Berhasil";
+}
+
+function setSheetHeader(sheet, headers) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
   } else {
-    // Timpa baris pertama dengan header yang benar
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   }
-  
-  // Format Header Row
   var headerRange = sheet.getRange(1, 1, 1, headers.length);
   headerRange.setFontWeight("bold");
   headerRange.setBackground("#1e293b");
   headerRange.setFontColor("#ffffff");
   headerRange.setHorizontalAlignment("center");
-  
-  // Bekukan baris pertama (Freeze header)
   sheet.setFrozenRows(1);
-  
-  SpreadsheetApp.getUi().alert("✅ Database BOSP Berhasil Disiapkan!\nSheet 'DATABASE_TRANSAKSI' siap digunakan.");
-  return "Setup Berhasil";
 }
 
 function onOpen() {
@@ -66,51 +69,112 @@ function onOpen() {
 function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("DATABASE_TRANSAKSI");
     
-    if (!sheet) {
-      return responseJSON({ status: "success", count: 0, data: [] });
+    // --- 1. DATA TRANSAKSI ---
+    var sheetTx = ss.getSheetByName("DATABASE_TRANSAKSI");
+    var transactions = [];
+    if (sheetTx) {
+      var valuesTx = sheetTx.getDataRange().getValues();
+      for (var i = 1; i < valuesTx.length; i++) {
+        var row = valuesTx[i];
+        if (!row[0] && !row[1] && !row[4]) continue;
+        transactions.push({
+          no: Number(row[0]) || i,
+          tanggal: row[1] ? formatDate(row[1]) : "",
+          tipeTransaksi: row[2] || "KELUAR",
+          jenisTransaksi: row[3] || "",
+          noSurat: row[4] || "",
+          namaPenerima: row[5] || "",
+          noRekPenerima: String(row[6] || "").replace(/^'/, ""),
+          namaBank: row[7] || "BJB",
+          pph: Number(row[8]) || 0,
+          ppn: Number(row[9]) || 0,
+          netto: Number(row[10]) || 0,
+          siplah: row[11] || "Non Siplah",
+          noPo: row[12] || "",
+          keterangan: row[13] || "",
+          vendor: row[14] || "NON SIPLAH",
+          statusSi: row[15] || "BELUM CETAK",
+          bulan: row[16] || "",
+          tahun: String(row[17] || "2024"),
+          deskripsiFull: row[18] || "",
+          kategori: row[19] || "JASA KANTOR"
+        });
+      }
     }
-    
-    var values = sheet.getDataRange().getValues();
-    if (values.length <= 1) {
-      return responseJSON({ status: "success", count: 0, data: [] });
+
+    // --- 2. INFORMASI SEKOLAH ---
+    var sheetInfo = ss.getSheetByName("INFORMASI_SEKOLAH");
+    var schoolSettings = null;
+    if (sheetInfo) {
+      var valuesInfo = sheetInfo.getDataRange().getValues();
+      if (valuesInfo.length > 1) {
+        var kv = {};
+        for (var j = 1; j < valuesInfo.length; j++) {
+          var k = String(valuesInfo[j][0] || "").trim();
+          var v = String(valuesInfo[j][1] || "");
+          if (k) kv[k] = v;
+        }
+        if (Object.keys(kv).length > 0) {
+          schoolSettings = {
+            pemerintah: kv["PEMERINTAH"] || "",
+            namaSekolah: kv["NAMA_SEKOLAH"] || "",
+            alamatSekolah: kv["ALAMAT_SEKOLAH"] || "",
+            bankTarget: kv["BANK_TARGET"] || "",
+            bankBranch: kv["BANK_BRANCH"] || "",
+            noRekeningUtama: kv["NO_REKENING_UTAMA"] || "",
+            atasNamaRekening: kv["ATAS_NAMA_REKENING"] || "",
+            sumberDana: kv["SUMBER_DANA"] || "",
+            kotaSurat: kv["KOTA_SURAT"] || "",
+            logoKabupatenUrl: kv["LOGO_KABUPATEN_URL"] || "",
+            logoSekolahUrl: kv["LOGO_SEKOLAH_URL"] || "",
+            kepalaSekolah: {
+              nama: kv["KEPALA_SEKOLAH_NAMA"] || "",
+              jabatan: kv["KEPALA_SEKOLAH_JABATAN"] || "",
+              nip: kv["KEPALA_SEKOLAH_NIP"] || "",
+              nik: kv["KEPALA_SEKOLAH_NIK"] || "",
+              hp: kv["KEPALA_SEKOLAH_HP"] || "",
+              alamat: kv["KEPALA_SEKOLAH_ALAMAT"] || ""
+            },
+            bendahara: {
+              nama: kv["BENDAHARA_NAMA"] || "",
+              jabatan: kv["BENDAHARA_JABATAN"] || "",
+              nip: kv["BENDAHARA_NIP"] || "",
+              nik: kv["BENDAHARA_NIK"] || "",
+              hp: kv["BENDAHARA_HP"] || "",
+              alamat: kv["BENDAHARA_ALAMAT"] || ""
+            }
+          };
+        }
+      }
     }
-    
-    var headers = values[0];
-    var data = [];
-    
-    for (var i = 1; i < values.length; i++) {
-      var row = values[i];
-      if (!row[0] && !row[1] && !row[4]) continue; // skip empty rows
-      
-      var item = {
-        no: Number(row[0]) || i,
-        tanggal: row[1] ? formatDate(row[1]) : "",
-        tipeTransaksi: row[2] || "KELUAR",
-        jenisTransaksi: row[3] || "",
-        noSurat: row[4] || "",
-        namaPenerima: row[5] || "",
-        noRekPenerima: String(row[6] || "").replace(/^'/, ""),
-        namaBank: row[7] || "BJB",
-        pph: Number(row[8]) || 0,
-        ppn: Number(row[9]) || 0,
-        netto: Number(row[10]) || 0,
-        siplah: row[11] || "Non Siplah",
-        noPo: row[12] || "",
-        keterangan: row[13] || "",
-        vendor: row[14] || "NON SIPLAH",
-        statusSi: row[15] || "BELUM CETAK",
-        bulan: row[16] || "",
-        tahun: String(row[17] || "2024"),
-        deskripsiFull: row[18] || "",
-        kategori: row[19] || "JASA KANTOR"
-      };
-      
-      data.push(item);
+
+    // --- 3. DATABASE VENDOR ---
+    var sheetVendor = ss.getSheetByName("DATABASE_VENDOR");
+    var vendors = [];
+    if (sheetVendor) {
+      var valuesVendor = sheetVendor.getDataRange().getValues();
+      for (var k = 1; k < valuesVendor.length; k++) {
+        var vRow = valuesVendor[k];
+        if (!vRow[0] && !vRow[1]) continue;
+        vendors.push({
+          id: String(vRow[0] || ("vendor-" + k)),
+          nama: String(vRow[1] || ""),
+          alamat: String(vRow[2] || ""),
+          hp: String(vRow[3] || "").replace(/^'/, ""),
+          npwp: String(vRow[4] || "").replace(/^'/, "")
+        });
+      }
     }
-    
-    return responseJSON({ status: "success", count: data.length, data: data });
+
+    return responseJSON({
+      status: "success",
+      count: transactions.length,
+      data: transactions,
+      transactions: transactions,
+      schoolSettings: schoolSettings,
+      vendors: vendors
+    });
   } catch (err) {
     return responseJSON({ status: "error", message: err.toString() });
   }
@@ -122,64 +186,116 @@ function doPost(e) {
     var action = postData.action || "sync_all";
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     
-    if (action === "sync_all" || action === "save_transactions") {
-      var transactions = postData.transactions || [];
-      var sheet = getOrCreateSheet(ss, "DATABASE_TRANSAKSI");
-      
-      // Setup Headers
-      var headers = [
-        "NO", "TANGGAL", "TIPE TRANSAKSI", "JENIS TRANSAKSI", "NO. SURAT",
-        "NAMA PENERIMA", "NO. REK PENERIMA", "NAMA BANK", "PPh", "PPN",
-        "NETTO", "SIPLAH", "NO. PO", "KETERANGAN", "VENDOR",
-        "STATUS SI", "BULAN", "TAHUN", "DESKRIPSI FULL", "KATEGORI"
-      ];
-      
-      sheet.clearContents();
-      sheet.appendRow(headers);
-      
-      // Format Header Row
-      var headerRange = sheet.getRange(1, 1, 1, headers.length);
-      headerRange.setFontWeight("bold");
-      headerRange.setBackground("#1e293b");
-      headerRange.setFontColor("#ffffff");
-      
-      if (transactions.length > 0) {
-        var rows = transactions.map(function(t, idx) {
-          return [
-            t.no || (idx + 1),
-            t.tanggal || "",
-            t.tipeTransaksi || "KELUAR",
-            t.jenisTransaksi || "",
-            t.noSurat || "",
-            t.namaPenerima || "",
-            "'" + (t.noRekPenerima || ""), // add single quote to force string in Excel/Sheets
-            t.namaBank || "BJB",
-            t.pph || 0,
-            t.ppn || 0,
-            t.netto || 0,
-            t.siplah || "Non Siplah",
-            t.noPo || "",
-            t.keterangan || "",
-            t.vendor || "NON SIPLAH",
-            t.statusSi || "BELUM CETAK",
-            t.bulan || "",
-            t.tahun || "2024",
-            t.deskripsiFull || "",
-            t.kategori || "JASA KANTOR"
-          ];
-        });
+    // --- SAVE TRANSACTIONS ---
+    if (action === "sync_all" || action === "save_all" || action === "save_transactions") {
+      if (postData.transactions && Array.isArray(postData.transactions)) {
+        var sheetTx = getOrCreateSheet(ss, "DATABASE_TRANSAKSI");
+        var headersTx = [
+          "NO", "TANGGAL", "TIPE TRANSAKSI", "JENIS TRANSAKSI", "NO. SURAT",
+          "NAMA PENERIMA", "NO. REK PENERIMA", "NAMA BANK", "PPh", "PPN",
+          "NETTO", "SIPLAH", "NO. PO", "KETERANGAN", "VENDOR",
+          "STATUS SI", "BULAN", "TAHUN", "DESKRIPSI FULL", "KATEGORI"
+        ];
+        sheetTx.clearContents();
+        setSheetHeader(sheetTx, headersTx);
         
-        sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+        if (postData.transactions.length > 0) {
+          var rowsTx = postData.transactions.map(function(t, idx) {
+            return [
+              t.no || (idx + 1),
+              t.tanggal || "",
+              t.tipeTransaksi || "KELUAR",
+              t.jenisTransaksi || "",
+              t.noSurat || "",
+              t.namaPenerima || "",
+              "'" + (t.noRekPenerima || ""),
+              t.namaBank || "BJB",
+              t.pph || 0,
+              t.ppn || 0,
+              t.netto || 0,
+              t.siplah || "Non Siplah",
+              t.noPo || "",
+              t.keterangan || "",
+              t.vendor || "NON SIPLAH",
+              t.statusSi || "BELUM CETAK",
+              t.bulan || "",
+              t.tahun || "2024",
+              t.deskripsiFull || "",
+              t.kategori || "JASA KANTOR"
+            ];
+          });
+          sheetTx.getRange(2, 1, rowsTx.length, headersTx.length).setValues(rowsTx);
+        }
       }
-      
-      return responseJSON({
-        status: "success",
-        message: "Berhasil menyinkronkan " + transactions.length + " data transaksi ke Google Spreadsheet!",
-        updatedAt: new Date().toISOString()
-      });
     }
-    
-    return responseJSON({ status: "error", message: "Aksi tidak dikenali" });
+
+    // --- SAVE INFORMASI SEKOLAH ---
+    if (action === "sync_all" || action === "save_all" || action === "save_school_settings") {
+      if (postData.schoolSettings) {
+        var s = postData.schoolSettings;
+        var sheetInfo = getOrCreateSheet(ss, "INFORMASI_SEKOLAH");
+        var headersInfo = ["PROPERTY", "VALUE"];
+        sheetInfo.clearContents();
+        setSheetHeader(sheetInfo, headersInfo);
+
+        var infoRows = [
+          ["PEMERINTAH", s.pemerintah || ""],
+          ["NAMA_SEKOLAH", s.namaSekolah || ""],
+          ["ALAMAT_SEKOLAH", s.alamatSekolah || ""],
+          ["BANK_TARGET", s.bankTarget || ""],
+          ["BANK_BRANCH", s.bankBranch || ""],
+          ["NO_REKENING_UTAMA", s.noRekeningUtama || ""],
+          ["ATAS_NAMA_REKENING", s.atasNamaRekening || ""],
+          ["SUMBER_DANA", s.sumberDana || ""],
+          ["KOTA_SURAT", s.kotaSurat || ""],
+          ["LOGO_KABUPATEN_URL", s.logoKabupatenUrl || ""],
+          ["LOGO_SEKOLAH_URL", s.logoSekolahUrl || ""],
+          ["KEPALA_SEKOLAH_NAMA", s.kepalaSekolah ? s.kepalaSekolah.nama : ""],
+          ["KEPALA_SEKOLAH_JABATAN", s.kepalaSekolah ? s.kepalaSekolah.jabatan : ""],
+          ["KEPALA_SEKOLAH_NIP", s.kepalaSekolah ? s.kepalaSekolah.nip : ""],
+          ["KEPALA_SEKOLAH_NIK", s.kepalaSekolah ? s.kepalaSekolah.nik : ""],
+          ["KEPALA_SEKOLAH_HP", s.kepalaSekolah ? s.kepalaSekolah.hp : ""],
+          ["KEPALA_SEKOLAH_ALAMAT", s.kepalaSekolah ? s.kepalaSekolah.alamat : ""],
+          ["BENDAHARA_NAMA", s.bendahara ? s.bendahara.nama : ""],
+          ["BENDAHARA_JABATAN", s.bendahara ? s.bendahara.jabatan : ""],
+          ["BENDAHARA_NIP", s.bendahara ? s.bendahara.nip : ""],
+          ["BENDAHARA_NIK", s.bendahara ? s.bendahara.nik : ""],
+          ["BENDAHARA_HP", s.bendahara ? s.bendahara.hp : ""],
+          ["BENDAHARA_ALAMAT", s.bendahara ? s.bendahara.alamat : ""]
+        ];
+
+        sheetInfo.getRange(2, 1, infoRows.length, 2).setValues(infoRows);
+      }
+    }
+
+    // --- SAVE VENDORS ---
+    if (action === "sync_all" || action === "save_all" || action === "save_vendors") {
+      if (postData.vendors && Array.isArray(postData.vendors)) {
+        var sheetVendor = getOrCreateSheet(ss, "DATABASE_VENDOR");
+        var headersVendor = ["ID", "NAMA_VENDOR", "ALAMAT", "NO_HP", "NPWP"];
+        sheetVendor.clearContents();
+        setSheetHeader(sheetVendor, headersVendor);
+
+        if (postData.vendors.length > 0) {
+          var rowsVendor = postData.vendors.map(function(v) {
+            return [
+              v.id || "",
+              v.nama || "",
+              v.alamat || "",
+              "'" + (v.hp || ""),
+              "'" + (v.npwp || "")
+            ];
+          });
+          sheetVendor.getRange(2, 1, rowsVendor.length, headersVendor.length).setValues(rowsVendor);
+        }
+      }
+    }
+
+    return responseJSON({
+      status: "success",
+      message: "Berhasil menyinkronkan seluruh data (Transaksi, Kop Surat, & Vendor) ke Google Spreadsheet!",
+      updatedAt: new Date().toISOString()
+    });
   } catch (err) {
     return responseJSON({ status: "error", message: err.toString() });
   }
