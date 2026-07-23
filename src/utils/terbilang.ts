@@ -58,6 +58,28 @@ const MONTH_NAMES_ID = [
   'Desember',
 ];
 
+export function toProperCase(name?: string): string {
+  if (!name || !name.trim()) return '-';
+  const str = name.trim();
+  
+  // Convert words to Title/Proper Case while preserving academic degrees properly
+  const formatted = str
+    .toLowerCase()
+    .replace(/(?:^|\s|\/|\(|\)|\.|,|-)[a-z]/g, (match) => match.toUpperCase())
+    .replace(/\bS\.pd\b/gi, 'S.Pd')
+    .replace(/\bM\.pd\b/gi, 'M.Pd')
+    .replace(/\bS\.ag\b/gi, 'S.Ag')
+    .replace(/\bS\.e\b/gi, 'S.E')
+    .replace(/\bS\.st\b/gi, 'S.ST')
+    .replace(/\bM\.m\b/gi, 'M.M')
+    .replace(/\bS\.kom\b/gi, 'S.Kom')
+    .replace(/\bS\.sos\b/gi, 'S.Sos')
+    .replace(/\bS\.si\b/gi, 'S.Si')
+    .replace(/\bH\.j\b/gi, 'Hj.');
+
+  return formatted;
+}
+
 export function formatTitimangsa(dateStr?: string): string {
   if (!dateStr || !dateStr.trim()) {
     const now = new Date();

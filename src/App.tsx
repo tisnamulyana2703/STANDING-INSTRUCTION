@@ -43,7 +43,12 @@ export default function App() {
     const saved = localStorage.getItem('bosp_school_settings');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed?.namaSekolah === 'SD NEGERI CIBURIAL' || parsed?.kepalaSekolah?.nama?.includes('CARNIA')) {
+          localStorage.setItem('bosp_school_settings', JSON.stringify(DEFAULT_SCHOOL_SETTINGS));
+          return DEFAULT_SCHOOL_SETTINGS;
+        }
+        return parsed;
       } catch (e) {
         console.error('Failed to parse school settings:', e);
       }
@@ -56,7 +61,13 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          if (parsed.some((v) => v.id === 'vendor-2' || v.nama?.includes('MEDIA SARANA'))) {
+            localStorage.setItem('bosp_vendors_db', JSON.stringify(DEFAULT_VENDORS));
+            return DEFAULT_VENDORS;
+          }
+          return parsed;
+        }
       } catch (e) {
         console.error('Failed to parse vendors:', e);
       }
@@ -160,6 +171,7 @@ export default function App() {
   const handleResetDefault = () => {
     setTransactions([]);
     setSchoolSettings(DEFAULT_SCHOOL_SETTINGS);
+    setVendors(DEFAULT_VENDORS);
     setSelectedIds([]);
   };
 

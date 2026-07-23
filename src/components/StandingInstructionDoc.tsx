@@ -1,6 +1,6 @@
 import React from 'react';
 import { Transaction, SchoolSettings, StandingInstructionConfig } from '../types';
-import { formatRupiah, terbilangRupiah, formatTitimangsa } from '../utils/terbilang';
+import { formatRupiah, terbilangRupiah, formatTitimangsa, toProperCase } from '../utils/terbilang';
 import { LogoBandungBarat, LogoTutWuri } from './Logos';
 
 interface StandingInstructionDocProps {
@@ -135,14 +135,14 @@ export function StandingInstructionDoc({
             <tr>
               <td className="border border-black p-1.5 font-bold">1.</td>
               <td className="border border-black p-1.5 font-bold text-left">{settings.kepalaSekolah.jabatan}</td>
-              <td className="border border-black p-1.5 font-bold text-left">{settings.kepalaSekolah.nama}</td>
+              <td className="border border-black p-1.5 font-bold text-left">{toProperCase(settings.kepalaSekolah.nama)}</td>
               <td className="border border-black p-1.5 text-left">{settings.kepalaSekolah.nik}</td>
               <td className="border border-black p-1.5">{settings.kepalaSekolah.hp}</td>
             </tr>
             <tr>
               <td className="border border-black p-1.5 font-bold">2.</td>
               <td className="border border-black p-1.5 font-bold text-left">{settings.bendahara.jabatan}</td>
-              <td className="border border-black p-1.5 font-bold text-left">{settings.bendahara.nama}</td>
+              <td className="border border-black p-1.5 font-bold text-left">{toProperCase(settings.bendahara.nama)}</td>
               <td className="border border-black p-1.5 text-left">{settings.bendahara.nik}</td>
               <td className="border border-black p-1.5">{settings.bendahara.hp}</td>
             </tr>
@@ -261,14 +261,14 @@ export function StandingInstructionDoc({
             <div>
               <p className="font-semibold">{settings.kepalaSekolah.jabatan},</p>
               <div className="h-16"></div>
-              <p className="font-bold underline uppercase">{settings.kepalaSekolah.nama}</p>
+              <p className="font-bold underline">{toProperCase(settings.kepalaSekolah.nama)}</p>
               <p className="text-[9.5px]">NIP. {settings.kepalaSekolah.nip}</p>
             </div>
 
             <div>
               <p className="font-semibold">{settings.bendahara.jabatan},</p>
               <div className="h-16"></div>
-              <p className="font-bold underline uppercase">{settings.bendahara.nama}</p>
+              <p className="font-bold underline">{toProperCase(settings.bendahara.nama)}</p>
               <p className="text-[9.5px]">NIP. {settings.bendahara.nip}</p>
             </div>
           </div>
