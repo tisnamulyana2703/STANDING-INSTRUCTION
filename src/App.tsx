@@ -11,7 +11,7 @@ import { ImportExportModal } from './components/ImportExportModal';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
 import { Sun, Moon, Settings, Store, Cloud, FileSpreadsheet } from 'lucide-react';
-import { sanitizeSchoolSettingsForSync } from './utils/googleAppsScript';
+import { sanitizeSchoolSettingsForSync, ensureTransactionIds } from './utils/googleAppsScript';
 
 export default function App() {
   // Theme state
@@ -26,7 +26,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed;
+          return ensureTransactionIds(parsed);
         }
       } catch (e) {
         console.error('Failed to parse saved transactions:', e);
@@ -129,7 +129,7 @@ export default function App() {
             ? result.data
             : [];
           if (txList.length > 0) {
-            setTransactions(txList);
+            setTransactions(ensureTransactionIds(txList));
           }
 
           // 2. School Settings
@@ -198,38 +198,90 @@ export default function App() {
 
   // Save/Update transaction
   const handleSaveTransaction = (tx: Transaction) => {
+    const safePrev = ensureTransactionIds(transactions);
+    const targetId = tx.id ? String(tx.id).trim() : '';
+
+    // Find by ID first, or fallback to matching 'no'
+    let idx = -1;
+    if (targetId) {
+      idx = safePrev.findIndex((t) => String(t.id).trim() === targetId);
+    }
+    if (idx === -1 && tx.no !== undefined && tx.no !== null) {
+      idx = safePrev.findIndex((t) => Number(t.no) === Number(tx.no));
+    }
+
+    const safeTx: Transaction = {
+      ...tx,
+      id: targetId || (idx >= 0 && safePrev[idx]?.id ? String(safePrev[idx].id) : `tx-${tx.no || Date.now()}-${Math.random().toString(36).substring(2, 7)}`),
+      no: Number(tx.no) || (idx >= 0 ? safePrev[idx].no : safePrev.length + 1)
+    };
+
     let updatedTxList: Transaction[] = [];
-    setTransactions((prev) => {
-      const idx = prev.findIndex((t) => t.id === tx.id);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = tx;
-        updatedTxList = copy;
-        return copy;
-      } else {
-        updatedTxList = [tx, ...prev];
-        return updatedTxList;
-      }
-    });
+    if (idx >= 0) {
+      updatedTxList = [...safePrev];
+      updatedTxList[idx] = safeTx;
+    } else {
+      updatedTxList = [safeTx, ...safePrev];
+    }
+
+    setTransactions(updatedTxList);
     syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
   };
 
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = (id: string | number) => {
+    const strId = String(id || '').trim();
+    if (!strId) {
+      alert('Gagal menghapus: ID transaksi tidak valid.');
+      return;
+    }
+
     if (confirm('Apakah Anda yakin ingin menghapus data transaksi ini?')) {
-      const filtered = transactions.filter((t) => t.id !== id);
-      setTransactions(filtered);
-      setSelectedIds((prev) => prev.filter((i) => i !== id));
-      syncToGoogleSheets(filtered, schoolSettings, vendors);
+      const safePrev = ensureTransactionIds(transactions);
+
+      // Filter out matching item by ID or No
+      const updatedTxList = safePrev.filter((t) => {
+        const matchId = String(t.id).trim() === strId;
+        const matchNo = String(t.no).trim() === strId;
+        return !matchId && !matchNo;
+      });
+
+      if (updatedTxList.length === safePrev.length) {
+        alert('Data transaksi tidak ditemukan.');
+        return;
+      }
+
+      setTransactions(updatedTxList);
+      setSelectedIds((prev) => prev.filter((i) => String(i) !== strId));
+      syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
+    }
+  };
+
+  const handleBulkDeleteTransactions = () => {
+    if (selectedIds.length === 0) return;
+    if (confirm(`Apakah Anda yakin ingin menghapus ${selectedIds.length} data transaksi terpilih?`)) {
+      const safePrev = ensureTransactionIds(transactions);
+      const strSelected = selectedIds.map((s) => String(s).trim());
+
+      const updatedTxList = safePrev.filter((t) => {
+        const idMatch = strSelected.includes(String(t.id).trim());
+        const noMatch = strSelected.includes(String(t.no).trim());
+        return !idMatch && !noMatch;
+      });
+
+      setTransactions(updatedTxList);
+      setSelectedIds([]);
+      syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
     }
   };
 
   // Import / Reset dataset
   const handleImportTransactions = (newItems: Transaction[], append: boolean) => {
     let updated: Transaction[] = [];
+    const safeNew = ensureTransactionIds(newItems);
     if (append) {
-      updated = [...newItems, ...transactions];
+      updated = [...safeNew, ...ensureTransactionIds(transactions)];
     } else {
-      updated = newItems;
+      updated = safeNew;
     }
     setTransactions(updated);
     syncToGoogleSheets(updated, schoolSettings, vendors);
@@ -353,6 +405,7 @@ export default function App() {
             setIsAddEditModalOpen(true);
           }}
           onDelete={handleDeleteTransaction}
+          onBulkDelete={handleBulkDeleteTransactions}
           onOpenImportExport={() => setIsImportExportModalOpen(true)}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
         />

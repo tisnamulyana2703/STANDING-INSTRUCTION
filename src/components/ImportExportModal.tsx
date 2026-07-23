@@ -16,7 +16,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import Papa from 'papaparse';
-import { GoogleAppsScriptCode, sanitizeSchoolSettingsForSync } from '../utils/googleAppsScript';
+import { GoogleAppsScriptCode, sanitizeSchoolSettingsForSync, ensureTransactionIds } from '../utils/googleAppsScript';
 
 interface ImportExportModalProps {
   isOpen: boolean;
@@ -131,7 +131,8 @@ export function ImportExportModal({
         const pulledMsg: string[] = [];
 
         // 1. Transactions
-        const txList = Array.isArray(result.transactions) ? result.transactions : (Array.isArray(result.data) ? result.data : []);
+        const rawTxList = Array.isArray(result.transactions) ? result.transactions : (Array.isArray(result.data) ? result.data : []);
+        const txList = ensureTransactionIds(rawTxList);
         if (txList.length > 0) {
           onImport(txList, importMode === 'append');
           pulledMsg.push(`${txList.length} transaksi`);

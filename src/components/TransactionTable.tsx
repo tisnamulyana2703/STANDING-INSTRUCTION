@@ -33,6 +33,7 @@ interface TransactionTableProps {
   onAddNew: () => void;
   onEdit: (tx: Transaction) => void;
   onDelete: (id: string) => void;
+  onBulkDelete?: () => void;
   onOpenImportExport: () => void;
   onOpenSettings: () => void;
 }
@@ -49,6 +50,7 @@ export function TransactionTable({
   onAddNew,
   onEdit,
   onDelete,
+  onBulkDelete,
   onOpenImportExport,
   onOpenSettings,
 }: TransactionTableProps) {
@@ -697,12 +699,66 @@ export function TransactionTable({
         </div>
       </div>
 
+      {/* Selected Items Bulk Action Bar */}
+      {selectedIds.length > 0 && (
+        <div className="bg-indigo-600 text-white p-3.5 rounded-2xl shadow-md flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center space-x-2 text-xs font-bold">
+            <CheckSquare className="w-4 h-4 text-indigo-200" />
+            <span>{selectedIds.length} transaksi terpilih</span>
+          </div>
+          <div className="flex items-center space-x-2 text-xs font-semibold">
+            <button
+              onClick={onGenerateSIForSelected}
+              className="px-3 py-1.5 bg-white text-indigo-900 hover:bg-indigo-50 rounded-lg shadow-2xs font-bold transition-colors inline-flex items-center gap-1 cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Cetak SI Terpilih
+            </button>
+            {onBulkDelete && (
+              <button
+                onClick={onBulkDelete}
+                className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg shadow-2xs font-bold transition-colors inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Hapus Terpilih ({selectedIds.length})
+              </button>
+            )}
+            <button
+              onClick={() => onSelectAll([])}
+              className="px-2.5 py-1.5 text-indigo-200 hover:text-white transition-colors"
+            >
+              Batal Pilih
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Table Container - Bento Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 border-collapse">
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100 dark:border-slate-800">
               <tr>
+                <th className="p-3.5 w-10 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isAllPageSelected) {
+                        onSelectAll(selectedIds.filter((id) => !pageIds.includes(id)));
+                      } else {
+                        onSelectAll(Array.from(new Set([...selectedIds, ...pageIds])));
+                      }
+                    }}
+                    className="text-slate-400 hover:text-indigo-600 transition cursor-pointer"
+                    title={isAllPageSelected ? 'Batal pilih halaman ini' : 'Pilih semua di halaman ini'}
+                  >
+                    {isAllPageSelected ? (
+                      <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                  </button>
+                </th>
                 <th className="p-3.5 w-12 text-center">NO</th>
                 <th className="p-3.5">TANGGAL</th>
                 <th className="p-3.5">JENIS TRANSAKSI</th>
@@ -717,13 +773,14 @@ export function TransactionTable({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-10 text-center text-slate-400 dark:text-slate-500 font-medium">
+                  <td colSpan={10} className="p-10 text-center text-slate-400 dark:text-slate-500 font-medium">
                     Tidak ada transaksi yang cocok dengan kriteria filter.
                   </td>
                 </tr>
               ) : (
                 currentItems.map((tx, idx) => {
-                  const isSelected = selectedIds.includes(tx.id);
+                  const txIdStr = String(tx.id || tx.no);
+                  const isSelected = selectedIds.includes(txIdStr) || selectedIds.includes(tx.id as any);
                   const isMasuk =
                     tx.tipeTransaksi === 'MASUK' ||
                     String(tx.jenisTransaksi || '').toUpperCase().includes('SALUR') ||
@@ -737,6 +794,19 @@ export function TransactionTable({
                         isSelected ? 'bg-indigo-50/60 dark:bg-indigo-950/40' : ''
                       }`}
                     >
+                      <td className="p-3.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => onToggleSelect(txIdStr)}
+                          className="text-slate-400 hover:text-indigo-600 transition cursor-pointer"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+                      </td>
                       <td className="p-3.5 text-center font-mono text-slate-400">{tx.no}</td>
                       <td className="p-3.5 whitespace-nowrap font-mono text-[11px] text-slate-600 dark:text-slate-300">{tx.tanggal}</td>
                       <td className="p-3.5 whitespace-nowrap">
@@ -804,7 +874,7 @@ export function TransactionTable({
                           </button>
 
                           <button
-                            onClick={() => onDelete(tx.id)}
+                            onClick={() => onDelete(String(tx.id || tx.no))}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
                             title="Hapus Record"
                           >

@@ -125,6 +125,7 @@ export function AddEditTransactionModal({
 
       setFormData({
         ...initialData,
+        id: initialData.id,
         tipeTransaksi: isPemasukan ? 'MASUK' : 'KELUAR',
         tahun: initialData?.tahun || year,
         bulan: initialData?.bulan || month,
@@ -211,7 +212,7 @@ export function AddEditTransactionModal({
       formData.siplah === 'BOS SALUR';
 
     const savedTx: Transaction = {
-      id: formData.id || `tx-${Date.now()}`,
+      id: formData.id || initialData?.id || (formData.no ? `tx-${formData.no}` : `tx-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`),
       no: Number(formData.no) || nextNo,
       tanggal: formData.tanggal || isoToDmy(dateIso),
       tipeTransaksi: isPemasukan ? 'MASUK' : 'KELUAR',

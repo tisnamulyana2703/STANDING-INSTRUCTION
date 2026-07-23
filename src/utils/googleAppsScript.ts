@@ -80,8 +80,10 @@ function doGet(e) {
       for (var i = 1; i < valuesTx.length; i++) {
         var row = valuesTx[i];
         if (!row[0] && !row[1] && !row[4]) continue;
+        var rowNo = parseInt(cleanStr(row[0]), 10) || i;
         transactions.push({
-          no: parseInt(cleanStr(row[0]), 10) || i,
+          id: "tx-" + rowNo + "-" + i,
+          no: rowNo,
           tanggal: row[1] ? formatDate(row[1]) : "",
           tipeTransaksi: cleanStr(row[2]) || "KELUAR",
           jenisTransaksi: cleanStr(row[3]),
@@ -386,5 +388,18 @@ export function sanitizeSchoolSettingsForSync(settings: any) {
     copy.logoSekolahUrl = copy.logoSekolahUrl.substring(0, 25000);
   }
   return copy;
+}
+
+export function ensureTransactionIds(list: any[]): any[] {
+  if (!Array.isArray(list)) return [];
+  return list.map((t, idx) => {
+    const rawNo = typeof t?.no === 'number' ? t.no : (parseInt(String(t?.no || ''), 10) || (idx + 1));
+    const existingId = t && t.id !== undefined && t.id !== null ? String(t.id).trim() : '';
+    return {
+      ...t,
+      id: existingId || `tx-${rawNo}-${idx + 1}`,
+      no: rawNo,
+    };
+  });
 }
 
