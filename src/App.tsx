@@ -11,6 +11,7 @@ import { ImportExportModal } from './components/ImportExportModal';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
 import { Sun, Moon, Settings, Store, Cloud, FileSpreadsheet } from 'lucide-react';
+import { sanitizeSchoolSettingsForSync } from './utils/googleAppsScript';
 
 export default function App() {
   // Theme state
@@ -103,7 +104,7 @@ export default function App() {
         body: JSON.stringify({
           action: 'sync_all',
           transactions: txList,
-          schoolSettings: settings,
+          schoolSettings: sanitizeSchoolSettingsForSync(settings),
           vendors: vendorList,
         }),
       });
@@ -132,7 +133,11 @@ export default function App() {
           }
 
           // 2. School Settings
-          if (result.schoolSettings && result.schoolSettings.namaSekolah) {
+          if (
+            result.schoolSettings &&
+            typeof result.schoolSettings === 'object' &&
+            Object.keys(result.schoolSettings).length > 0
+          ) {
             setSchoolSettings(result.schoolSettings);
           }
 

@@ -16,7 +16,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import Papa from 'papaparse';
-import { GoogleAppsScriptCode } from '../utils/googleAppsScript';
+import { GoogleAppsScriptCode, sanitizeSchoolSettingsForSync } from '../utils/googleAppsScript';
 
 interface ImportExportModalProps {
   isOpen: boolean;
@@ -91,7 +91,7 @@ export function ImportExportModal({
         body: JSON.stringify({
           action: 'sync_all',
           transactions: transactions,
-          schoolSettings: schoolSettings,
+          schoolSettings: sanitizeSchoolSettingsForSync(schoolSettings),
           vendors: vendors,
         }),
       });
@@ -138,7 +138,11 @@ export function ImportExportModal({
         }
 
         // 2. School Settings
-        if (result.schoolSettings && result.schoolSettings.namaSekolah) {
+        if (
+          result.schoolSettings &&
+          typeof result.schoolSettings === 'object' &&
+          Object.keys(result.schoolSettings).length > 0
+        ) {
           onImportSchoolSettings?.(result.schoolSettings);
           pulledMsg.push('Informasi Sekolah & Kop Surat');
         }

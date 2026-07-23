@@ -16,9 +16,9 @@ export function parseRawData(text: string): Transaction[] {
     const noStr = parts[0] || `${i}`;
     const tanggal = parts[1] || '';
     const jenisTransaksi = parts[2] || '';
-    const noSurat = parts[3] || '';
+    const noSurat = (parts[3] || '').replace(/^'/, '');
     const namaPenerima = parts[4] || '';
-    const noRekPenerima = parts[5] || '';
+    const noRekPenerima = (parts[5] || '').replace(/^'/, '');
     const namaBank = parts[6] || '';
     const pph = parts[7] || '-';
     const ppn = parts[8] || '-';
@@ -28,7 +28,7 @@ export function parseRawData(text: string): Transaction[] {
     const netto = parseInt(rawNetto, 10) || 0;
     
     const siplah = parts[10] || '';
-    const noPo = parts[11] || '';
+    const noPo = (parts[11] || '').replace(/^'/, '');
     const keterangan = parts[12] || '';
     const vendor = parts[13] || '';
     const statusSi = parts[14] || '';
