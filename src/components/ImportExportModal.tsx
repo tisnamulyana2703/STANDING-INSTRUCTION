@@ -491,16 +491,16 @@ export function ImportExportModal({
           {activeTab === 'reset' && (
             <div className="bg-slate-50/60 dark:bg-slate-800/30 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
               <div>
-                <p className="font-bold text-slate-900 dark:text-white text-sm">Reset Data Ke Bawaan Pabrik</p>
+                <p className="font-bold text-slate-900 dark:text-white text-sm">Kosongkan / Reset Database Transaksi</p>
                 <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-                  Kembalikan seluruh data ke sampel 539 data transaksi default SD Negeri Ciburial. Langkah ini akan menghapus transaksi baru yang ditambahkan secara lokal kecuali Anda sudah menyimpannya ke Google Sheets / File TSV.
+                  Menghapus seluruh data transaksi lokal untuk mengembalikan aplikasi ke kondisi default (kosong). Pastikan Anda sudah menyimpan atau mengeksport data Anda ke Google Sheets atau File TSV sebelum melakukan reset.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm('Apakah Anda yakin ingin mengembalikan seluruh data transaksi ke sampel default awal?')) {
+                  if (confirm('Apakah Anda yakin ingin menghapus seluruh data transaksi dari aplikasi?')) {
                     onResetDefault();
                     onClose();
                   }
@@ -508,7 +508,7 @@ export function ImportExportModal({
                 className="inline-flex items-center px-4 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors shadow-xs cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Reset Seluruh Database ke Bawaan
+                Kosongkan Seluruh Data Transaksi
               </button>
             </div>
           )}

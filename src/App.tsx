@@ -24,12 +24,19 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          // If stored data is the old initial sample dataset (contains 539 items or sample noSurat), clear it
+          if (parsed.length > 500 && parsed[0]?.noSurat === '240221302000130') {
+            localStorage.setItem('bosp_transactions_db', JSON.stringify([]));
+            return [];
+          }
+          return parsed;
+        }
       } catch (e) {
         console.error('Failed to parse saved transactions:', e);
       }
     }
-    return INITIAL_TRANSACTIONS;
+    return [];
   });
 
   const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>(() => {
@@ -151,7 +158,7 @@ export default function App() {
   };
 
   const handleResetDefault = () => {
-    setTransactions(INITIAL_TRANSACTIONS);
+    setTransactions([]);
     setSchoolSettings(DEFAULT_SCHOOL_SETTINGS);
     setSelectedIds([]);
   };
