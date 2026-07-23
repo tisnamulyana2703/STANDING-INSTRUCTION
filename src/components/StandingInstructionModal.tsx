@@ -22,18 +22,23 @@ export function StandingInstructionModal({
 }: StandingInstructionModalProps) {
   const [isExporting, setIsExporting] = useState(false);
   
-  // Extract initial defaults from selected items
-  const firstItem = selectedItems[0];
-  const derivedNoSurat = firstItem?.noSurat || '900.3.5.5/001-SDN-CBL/I/2025';
-  const derivedPurpose = firstItem?.jenisTransaksi || 'Pembayaran Honor';
-  const derivedYear = firstItem?.tahun || '2026';
+  // Extract initial defaults from selected items or all transactions
+  const activeSource = selectedItems.length > 0 ? selectedItems : allTransactions;
+  const firstWithNoSurat = activeSource.find(
+    (item) => item.tipeTransaksi !== 'MASUK' && String(item.noSurat || '').trim() !== ''
+  ) || activeSource.find((item) => String(item.noSurat || '').trim() !== '');
+  const firstItem = firstWithNoSurat || activeSource[0];
+
+  const derivedNoSurat = firstItem?.noSurat ? String(firstItem.noSurat).trim() : '';
+  const derivedPurpose = firstItem?.jenisTransaksi || 'Pembayaran Operasional BOSP';
+  const derivedYear = firstItem?.tahun || new Date().getFullYear().toString();
 
   const [config, setConfig] = useState<StandingInstructionConfig>({
     nomorSurat: derivedNoSurat,
     lampiran: '-',
     perihal: 'Permohonan Pemindah Bukuan',
     tujuanPenggunaan: derivedPurpose,
-    tanggalSurat: formatTitimangsa(firstItem?.tanggal || '22 Januari 2025'),
+    tanggalSurat: firstItem?.tanggal ? formatTitimangsa(firstItem.tanggal) : formatTitimangsa(''),
     sumberDana: `BOSP REGULER ${derivedYear}`,
     notes: '',
     marginTop: 10,
@@ -43,37 +48,70 @@ export function StandingInstructionModal({
     fontSizeScale: 'normal',
   });
 
-  // Unique No. Surat List
-  const availableNoSuratList = useMemo(() => {
-    const source = selectedItems.length > 0 ? selectedItems : allTransactions;
-    const set = new Set<string>();
-    source.forEach((t) => {
+  // Extract outgoing transactions ONLY (Transaksi Keluar)
+  const outgoingTransactions = useMemo(() => {
+    const list = allTransactions.length > 0 ? allTransactions : selectedItems;
+    return list.filter((t) => {
+      const isMasuk =
+        t.tipeTransaksi === 'MASUK' ||
+        String(t.jenisTransaksi || '').toUpperCase().includes('SALUR') ||
+        String(t.jenisTransaksi || '').toUpperCase().includes('PEMASUKAN') ||
+        t.siplah === 'BOS SALUR';
+      return !isMasuk;
+    });
+  }, [allTransactions, selectedItems]);
+
+  // Unique No. Surat list ONLY for outgoing transactions
+  const outgoingNoSuratList = useMemo(() => {
+    const map = new Map<string, { noSurat: string; jenisTransaksi: string; tanggal: string; tahun: string }>();
+    outgoingTransactions.forEach((t) => {
       const ns = String(t.noSurat || '').trim();
-      if (ns) {
-        set.add(ns);
+      if (ns && !map.has(ns.toLowerCase())) {
+        map.set(ns.toLowerCase(), {
+          noSurat: ns,
+          jenisTransaksi: t.jenisTransaksi || '',
+          tanggal: t.tanggal || '',
+          tahun: t.tahun || '',
+        });
       }
     });
-    return Array.from(set).sort();
-  }, [selectedItems, allTransactions]);
+    return Array.from(map.values()).sort((a, b) => a.noSurat.localeCompare(b.noSurat));
+  }, [outgoingTransactions]);
+
+  const handleSelectNoSurat = (selectedNoSurat: string) => {
+    if (!selectedNoSurat || selectedNoSurat === 'CUSTOM') return;
+    const match = outgoingTransactions.find(
+      (t) => String(t.noSurat || '').trim().toLowerCase() === selectedNoSurat.trim().toLowerCase()
+    );
+    setConfig((prev) => ({
+      ...prev,
+      nomorSurat: selectedNoSurat,
+      tujuanPenggunaan: match?.jenisTransaksi || prev.tujuanPenggunaan,
+      tanggalSurat: match?.tanggal ? formatTitimangsa(match.tanggal) : prev.tanggalSurat,
+      sumberDana: match?.tahun ? `BOSP REGULER ${match.tahun}` : prev.sumberDana,
+    }));
+  };
 
   // Sync if selected items change or modal opens
   useEffect(() => {
-    if (isOpen && selectedItems.length > 0) {
-      const firstWithNoSurat = selectedItems.find((item) => String(item.noSurat || '').trim() !== '');
-      const targetNoSurat = firstWithNoSurat ? String(firstWithNoSurat.noSurat).trim() : String(selectedItems[0]?.noSurat || '');
-      
-      if (targetNoSurat) {
-        const matchItem = selectedItems.find((i) => String(i.noSurat || '').trim() === targetNoSurat);
+    if (isOpen) {
+      const source = selectedItems.length > 0 ? selectedItems : outgoingTransactions;
+      const matchWithNoSurat = source.find(
+        (item) => item.tipeTransaksi !== 'MASUK' && String(item.noSurat || '').trim() !== ''
+      ) || source.find((item) => String(item.noSurat || '').trim() !== '');
+
+      if (matchWithNoSurat) {
+        const targetNoSurat = String(matchWithNoSurat.noSurat).trim();
         setConfig((prev) => ({
           ...prev,
           nomorSurat: targetNoSurat,
-          tujuanPenggunaan: matchItem?.jenisTransaksi || prev.tujuanPenggunaan,
-          tanggalSurat: formatTitimangsa(matchItem?.tanggal || prev.tanggalSurat),
-          sumberDana: `BOSP REGULER ${matchItem?.tahun || '2026'}`,
+          tujuanPenggunaan: matchWithNoSurat.jenisTransaksi || prev.tujuanPenggunaan,
+          tanggalSurat: matchWithNoSurat.tanggal ? formatTitimangsa(matchWithNoSurat.tanggal) : prev.tanggalSurat,
+          sumberDana: matchWithNoSurat.tahun ? `BOSP REGULER ${matchWithNoSurat.tahun}` : prev.sumberDana,
         }));
       }
     }
-  }, [isOpen, selectedItems]);
+  }, [isOpen, selectedItems, outgoingTransactions]);
 
   // STRICTLY FILTER preview items by active config.nomorSurat without pulling unselected items
   const filteredItemsForDoc = useMemo(() => {
@@ -138,18 +176,6 @@ export function StandingInstructionModal({
       marginLeft: config.marginLeft,
       marginRight: config.marginRight,
     });
-  };
-
-  const handleSelectNoSuratFromList = (noSuratVal: string) => {
-    const source = allTransactions.length > 0 ? allTransactions : selectedItems;
-    const match = source.find((t) => String(t.noSurat || '').trim() === noSuratVal.trim());
-    setConfig((prev) => ({
-      ...prev,
-      nomorSurat: noSuratVal,
-      tujuanPenggunaan: match?.jenisTransaksi || prev.tujuanPenggunaan,
-      tanggalSurat: formatTitimangsa(match?.tanggal || prev.tanggalSurat),
-      sumberDana: match?.tahun ? `BOSP REGULER ${match.tahun}` : prev.sumberDana,
-    }));
   };
 
   return (
@@ -231,40 +257,52 @@ export function StandingInstructionModal({
 
             <div className="space-y-3.5 text-xs">
               
-              {/* NO SURAT SELECTOR & INPUT */}
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                  <span>Nomor Surat SI (Terfilter)</span>
+              {/* NO SURAT INPUT / DROPDOWN SELECTOR FOR OUTGOING TRANSACTIONS */}
+              <div className="space-y-1.5">
+                <label className="block font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>Nomor Surat (Transaksi Keluar)</span>
                   <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
-                    {filteredItemsForDoc.length} data
+                    {filteredItemsForDoc.length} penerima
                   </span>
                 </label>
 
-                {availableNoSuratList.length > 0 && (
+                {outgoingNoSuratList.length > 0 ? (
                   <select
-                    value={availableNoSuratList.includes(config.nomorSurat) ? config.nomorSurat : 'CUSTOM'}
+                    value={
+                      outgoingNoSuratList.some(
+                        (opt) => opt.noSurat.toLowerCase() === String(config.nomorSurat || '').trim().toLowerCase()
+                      )
+                        ? outgoingNoSuratList.find(
+                            (opt) => opt.noSurat.toLowerCase() === String(config.nomorSurat || '').trim().toLowerCase()
+                          )?.noSurat
+                        : 'CUSTOM'
+                    }
                     onChange={(e) => {
                       if (e.target.value !== 'CUSTOM') {
-                        handleSelectNoSuratFromList(e.target.value);
+                        handleSelectNoSurat(e.target.value);
                       }
                     }}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-[11px] cursor-pointer"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs cursor-pointer"
                   >
-                    <option value="CUSTOM">-- Pilih No. Surat dari Database --</option>
-                    {availableNoSuratList.map((ns) => (
-                      <option key={ns} value={ns}>
-                        {ns}
+                    <option value="CUSTOM">-- Pilih No. Surat (Transaksi Keluar) --</option>
+                    {outgoingNoSuratList.map((opt) => (
+                      <option key={opt.noSurat} value={opt.noSurat}>
+                        {opt.noSurat} {opt.jenisTransaksi ? `• ${opt.jenisTransaksi}` : ''}
                       </option>
                     ))}
                   </select>
+                ) : (
+                  <div className="p-2 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 rounded-lg border border-amber-200 dark:border-amber-800">
+                    Belum ada Nomor Surat transaksi keluar.
+                  </div>
                 )}
 
                 <input
                   type="text"
                   value={config.nomorSurat}
                   onChange={(e) => setConfig({ ...config, nomorSurat: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-                  placeholder="Contoh: 900.3.5.5/001-SDN-CBL/I/2025"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                  placeholder="Ketik kustom nomor surat..."
                 />
               </div>
 

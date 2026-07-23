@@ -110,18 +110,23 @@ export default function App() {
   }, [darkMode]);
 
   // Handlers for transaction selection
-  const handleToggleSelect = (id: string) => {
+  const handleToggleSelect = (id: string | number) => {
+    const strId = String(id);
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      prev.includes(strId) ? prev.filter((i) => i !== strId) : [...prev, strId]
     );
   };
 
-  const handleSelectAll = (ids: string[]) => {
-    setSelectedIds(ids);
+  const handleSelectAll = (ids: (string | number)[]) => {
+    setSelectedIds(ids.map(String));
   };
 
   const handleSelectGroupNoSurat = (noSurat: string) => {
-    const matches = transactions.filter((t) => t.noSurat === noSurat).map((t) => t.id);
+    const target = String(noSurat || '').trim();
+    if (!target || target === 'ALL') return;
+    const matches = transactions
+      .filter((t) => String(t.noSurat || '').trim().toLowerCase() === target.toLowerCase())
+      .map((t) => String(t.id));
     setSelectedIds(matches);
   };
 
@@ -176,7 +181,9 @@ export default function App() {
   };
 
   // Items currently selected for Standing Instruction Modal
-  const selectedItems = transactions.filter((t) => selectedIds.includes(t.id));
+  const selectedItems = transactions.filter((t) =>
+    selectedIds.includes(String(t.id)) || selectedIds.includes(t.id as any)
+  );
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 pb-16">

@@ -444,13 +444,28 @@ export function TransactionTable({
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            id="btn-print-database"
-            onClick={() => handlePrintTransactions(filteredTransactions, 'LAPORAN DATABASE TRANSAKSI BOSP')}
-            className="inline-flex items-center px-3.5 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700/80 cursor-pointer"
-            title="Cetak Data Transaksi BOSP"
+            id="btn-open-standing-instruction"
+            onClick={() => {
+              if (noSuratFilter !== 'ALL') {
+                onGenerateSIForNoSurat(noSuratFilter);
+              } else if (selectedIds.length > 0) {
+                onGenerateSIForSelected();
+              } else if (filteredTransactions.length > 0) {
+                const firstNoSurat = filteredTransactions.find((t) => t.noSurat)?.noSurat;
+                if (firstNoSurat) {
+                  onGenerateSIForNoSurat(firstNoSurat);
+                } else {
+                  onGenerateSIForSelected();
+                }
+              } else {
+                alert('Tidak ada data transaksi untuk dibuatkan Standing Instruction.');
+              }
+            }}
+            className="inline-flex items-center px-3.5 py-2.5 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400 rounded-xl transition-colors shadow-xs cursor-pointer"
+            title="Cetak / Preview Standing Instruction BOSP"
           >
-            <Printer className="w-4 h-4 mr-1.5 text-indigo-600 dark:text-indigo-400" />
-            Print Data
+            <FileText className="w-4 h-4 mr-1.5" />
+            Standing Instruction
           </button>
 
           <button
@@ -670,8 +685,14 @@ export function TransactionTable({
             <select
               value={noSuratFilter}
               onChange={(e) => {
-                setNoSuratFilter(e.target.value);
+                const selectedNoSurat = e.target.value;
+                setNoSuratFilter(selectedNoSurat);
                 setCurrentPage(1);
+                if (selectedNoSurat !== 'ALL') {
+                  onSelectGroupNoSurat(selectedNoSurat);
+                } else {
+                  onSelectAll([]);
+                }
               }}
               className="py-1.5 px-2.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white max-w-xs truncate"
             >
@@ -733,25 +754,6 @@ export function TransactionTable({
           <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 border-collapse">
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="p-3.5 w-10 text-center">
-                  <button
-                    onClick={() => {
-                      if (isAllPageSelected) {
-                        onSelectAll(selectedIds.filter((id) => !pageIds.includes(id)));
-                      } else {
-                        onSelectAll(Array.from(new Set([...selectedIds, ...pageIds])));
-                      }
-                    }}
-                    className="text-slate-400 hover:text-indigo-600 transition-colors"
-                    title="Pilih Semua di Halaman Ini"
-                  >
-                    {isAllPageSelected ? (
-                      <CheckSquare className="w-4 h-4 text-indigo-600" />
-                    ) : (
-                      <Square className="w-4 h-4" />
-                    )}
-                  </button>
-                </th>
                 <th className="p-3.5 w-12 text-center">NO</th>
                 <th className="p-3.5">TANGGAL</th>
                 <th className="p-3.5">JENIS TRANSAKSI</th>
@@ -766,7 +768,7 @@ export function TransactionTable({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-10 text-center text-slate-400 dark:text-slate-500 font-medium">
+                  <td colSpan={9} className="p-10 text-center text-slate-400 dark:text-slate-500 font-medium">
                     Tidak ada transaksi yang cocok dengan kriteria filter.
                   </td>
                 </tr>
@@ -786,18 +788,6 @@ export function TransactionTable({
                         isSelected ? 'bg-indigo-50/60 dark:bg-indigo-950/40' : ''
                       }`}
                     >
-                      <td className="p-3.5 text-center">
-                        <button
-                          onClick={() => onToggleSelect(tx.id)}
-                          className="text-slate-300 hover:text-indigo-600 transition-colors"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-indigo-600" />
-                          ) : (
-                            <Square className="w-4 h-4" />
-                          )}
-                        </button>
-                      </td>
                       <td className="p-3.5 text-center font-mono text-slate-400">{tx.no}</td>
                       <td className="p-3.5 whitespace-nowrap font-mono text-[11px] text-slate-600 dark:text-slate-300">{tx.tanggal}</td>
                       <td className="p-3.5 whitespace-nowrap">
