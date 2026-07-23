@@ -186,12 +186,6 @@ export function TransactionTable({
     return filteredTransactions.reduce((acc, curr) => acc + (curr.netto || 0), 0);
   }, [filteredTransactions]);
 
-  const totalSelectedAmount = useMemo(() => {
-    return transactions
-      .filter((t) => selectedIds.includes(t.id) || selectedIds.includes(String(t.id)))
-      .reduce((acc, curr) => acc + (curr.netto || 0), 0);
-  }, [transactions, selectedIds]);
-
   const resetFilters = () => {
     setSearchTerm('');
     setYearFilter('ALL');
@@ -496,51 +490,6 @@ export function TransactionTable({
           </button>
         </div>
       </div>
-
-      {/* Selected Items Floating Notification / Action bar */}
-      {selectedIds.length > 0 && (
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 rounded-2xl shadow-xl border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-200">
-          <div className="flex items-center space-x-3.5">
-            <span className="bg-indigo-500/30 text-indigo-200 px-3 py-1 rounded-full text-xs font-bold font-mono border border-indigo-400/30">
-              {selectedIds.length} item dipilih
-            </span>
-            <span className="text-xs text-slate-300 font-medium">
-              Total Netto: <strong className="font-mono text-white text-sm ml-1">Rp {formatRupiah(totalSelectedAmount)}</strong>
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              id="btn-print-selected"
-              onClick={() => {
-                const selectedList = transactions.filter((t) => selectedIds.includes(t.id));
-                handlePrintTransactions(selectedList, 'LAPORAN TRANSAKSI TERPILIH BOSP');
-              }}
-              className="inline-flex items-center px-3.5 py-2 text-xs font-bold text-slate-100 bg-slate-800 hover:bg-slate-700 rounded-xl transition-all border border-slate-700 cursor-pointer"
-            >
-              <Printer className="w-4 h-4 mr-1.5 text-indigo-400" />
-              Print Pilihan ({selectedIds.length})
-            </button>
-
-            <button
-              id="btn-clear-selected"
-              onClick={() => onSelectAll([])}
-              className="px-3 py-1.5 text-xs text-slate-300 hover:text-white transition"
-            >
-              Batalkan Pilihan
-            </button>
-
-            <button
-              id="btn-generate-selected-si"
-              onClick={onGenerateSIForSelected}
-              className="inline-flex items-center px-4 py-2 text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-sm transition-all"
-            >
-              <FileText className="w-4 h-4 mr-1.5 text-slate-900" />
-              Buat Standing Instruction ({selectedIds.length})
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Filter Toolbar */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3.5">
