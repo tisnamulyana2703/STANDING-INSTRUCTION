@@ -10,11 +10,14 @@ import { SchoolSettingsModal } from './components/SchoolSettingsModal';
 import { CategoryManagementModal, DEFAULT_CATEGORIES } from './components/CategoryManagementModal';
 import { ImportExportModal } from './components/ImportExportModal';
 import { ActivationModal } from './components/ActivationModal';
+import { DemoLimitModal } from './components/DemoLimitModal';
 import { getStoredLicenseInfo, verifySerialNumber, getMachineId } from './utils/licenseUtils';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
-import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck } from 'lucide-react';
+import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles } from 'lucide-react';
 import { sanitizeSchoolSettingsForSync, ensureTransactionIds } from './utils/googleAppsScript';
+
+const MAX_DEMO_TRANSACTIONS = 3;
 
 export default function App() {
   // Theme state
@@ -92,6 +95,7 @@ export default function App() {
     return info.isActivated && verifySerialNumber(info.serialKey, mid);
   });
   const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
+  const [isDemoLimitModalOpen, setIsDemoLimitModalOpen] = useState(false);
 
   // Modal States
   const [isSiModalOpen, setIsSiModalOpen] = useState(false);
@@ -227,6 +231,15 @@ export default function App() {
     setIsSiModalOpen(true);
   };
 
+  const handleAddNewTransaction = () => {
+    if (!isActivated && transactions.length >= MAX_DEMO_TRANSACTIONS) {
+      setIsDemoLimitModalOpen(true);
+      return;
+    }
+    setEditingTx(null);
+    setIsAddEditModalOpen(true);
+  };
+
   // Save/Update transaction
   const handleSaveTransaction = (tx: Transaction) => {
     const safePrev = ensureTransactionIds(transactions);
@@ -239,6 +252,13 @@ export default function App() {
     }
     if (idx === -1 && tx.no !== undefined && tx.no !== null) {
       idx = safePrev.findIndex((t) => Number(t.no) === Number(tx.no));
+    }
+
+    const isAddingNew = idx === -1;
+    if (!isActivated && isAddingNew && safePrev.length >= MAX_DEMO_TRANSACTIONS) {
+      setIsAddEditModalOpen(false);
+      setIsDemoLimitModalOpen(true);
+      return;
     }
 
     const safeTx: Transaction = {
@@ -314,6 +334,15 @@ export default function App() {
     } else {
       updated = safeNew;
     }
+
+    if (!isActivated && updated.length > MAX_DEMO_TRANSACTIONS) {
+      updated = updated.slice(0, MAX_DEMO_TRANSACTIONS);
+      setTransactions(updated);
+      syncToGoogleSheets(updated, schoolSettings, vendors);
+      setIsDemoLimitModalOpen(true);
+      return;
+    }
+
     setTransactions(updated);
     syncToGoogleSheets(updated, schoolSettings, vendors);
   };
@@ -356,10 +385,10 @@ export default function App() {
                 <div className={`hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-semibold ${
                   isActivated
                     ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800'
-                    : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-800'
+                    : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800'
                 }`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${isActivated ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
-                  <span>{isActivated ? 'Lisensi Teraktivasi ✓' : 'Lisensi Belum Teraktivasi'}</span>
+                  <div className={`w-1.5 h-1.5 rounded-full ${isActivated ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`}></div>
+                  <span>{isActivated ? 'Lisensi Teraktivasi ✓' : `Versi Demo (${transactions.length}/${MAX_DEMO_TRANSACTIONS} Transaksi)`}</span>
                 </div>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
@@ -374,12 +403,12 @@ export default function App() {
               className={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border ${
                 isActivated
                   ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black border-amber-400 shadow-sm animate-bounce'
+                  : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black border-amber-400 shadow-sm'
               }`}
               title="Status Aktivasi & Serial Number Application"
             >
               <KeyRound className="w-4 h-4" />
-              <span className="hidden sm:inline">{isActivated ? 'Lisensi Aktif' : 'Aktivasi Serial'}</span>
+              <span className="hidden sm:inline">{isActivated ? 'Lisensi Aktif' : 'Aktivasi Lisensi'}</span>
             </button>
 
             <button
@@ -428,6 +457,37 @@ export default function App() {
       {/* MAIN CONTAINER */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
         
+        {/* DEMO MODE BANNER (Shown if not activated) */}
+        {!isActivated && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-amber-500/15 border border-amber-300 dark:border-amber-700/80 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 font-extrabold shadow-xs">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-amber-200">
+                    Aplikasi Berjalan Dalam Mode Demo
+                  </h3>
+                  <span className="bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-700">
+                    {transactions.length}/{MAX_DEMO_TRANSACTIONS} Transaksi Terpakai
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+                  Anda dapat mencoba menambah hingga {MAX_DEMO_TRANSACTIONS} data transaksi. Aktivasi lisensi untuk kapasitas transaksi unlimited.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsActivationModalOpen(true)}
+              className="px-4 py-2 text-xs font-black bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <KeyRound className="w-4 h-4" />
+              Beli / Aktivasi Lisensi
+            </button>
+          </div>
+        )}
+
         {/* STATS OVERVIEW & SHORTCUTS */}
         <DashboardStats
           transactions={transactions}
@@ -444,10 +504,7 @@ export default function App() {
           onSelectGroupNoSurat={handleSelectGroupNoSurat}
           onGenerateSIForSelected={handleGenerateSIForSelected}
           onGenerateSIForNoSurat={handleGenerateSIForNoSurat}
-          onAddNew={() => {
-            setEditingTx(null);
-            setIsAddEditModalOpen(true);
-          }}
+          onAddNew={handleAddNewTransaction}
           onEdit={(tx) => {
             setEditingTx(tx);
             setIsAddEditModalOpen(true);
@@ -548,14 +605,26 @@ export default function App() {
 
       {/* 6. ACTIVATION / SERIAL NUMBER MODAL */}
       <ActivationModal
-        isOpen={!isActivated || isActivationModalOpen}
+        isOpen={isActivationModalOpen}
         onClose={() => setIsActivationModalOpen(false)}
-        isLockScreen={!isActivated}
+        isLockScreen={false}
         schoolSettings={schoolSettings}
         onActivationSuccess={() => {
           setIsActivated(true);
           setIsActivationModalOpen(false);
         }}
+      />
+
+      {/* 7. DEMO LIMIT WARNING MODAL */}
+      <DemoLimitModal
+        isOpen={isDemoLimitModalOpen}
+        onClose={() => setIsDemoLimitModalOpen(false)}
+        onOpenActivation={() => {
+          setIsDemoLimitModalOpen(false);
+          setIsActivationModalOpen(true);
+        }}
+        currentCount={transactions.length}
+        maxLimit={MAX_DEMO_TRANSACTIONS}
       />
     </div>
   );
