@@ -18,7 +18,8 @@ import {
   RefreshCw,
   Download,
   Cloud,
-  Printer
+  Printer,
+  X
 } from 'lucide-react';
 
 interface TransactionTableProps {
@@ -60,6 +61,7 @@ export function TransactionTable({
   const [jenisFilter, setJenisFilter] = useState('ALL');
   const [kategoriFilter, setKategoriFilter] = useState('ALL');
   const [noSuratFilter, setNoSuratFilter] = useState('ALL');
+  const [noSuratSearch, setNoSuratSearch] = useState('');
   const [tipeFilter, setTipeFilter] = useState<'ALL' | 'KELUAR' | 'MASUK'>('ALL');
   
   const [currentPage, setCurrentPage] = useState(1);
@@ -122,6 +124,12 @@ export function TransactionTable({
     return Array.from(new Set(transactions.map((t) => String(t.noSurat || '')).filter(Boolean))).sort();
   }, [transactions]);
 
+  const filteredNoSuratList = useMemo(() => {
+    if (!noSuratSearch.trim()) return noSuratList;
+    const q = noSuratSearch.toLowerCase().trim();
+    return noSuratList.filter((ns) => ns.toLowerCase().includes(q));
+  }, [noSuratList, noSuratSearch]);
+
   // Helper to parse DD/MM/YYYY date strings
   function parseIndonesianDate(dmy: string): number {
     if (!dmy) return 0;
@@ -152,6 +160,7 @@ export function TransactionTable({
       if (jenisFilter !== 'ALL' && String(tx.jenisTransaksi) !== jenisFilter) return false;
       if (kategoriFilter !== 'ALL' && String(tx.kategori || '').trim().toUpperCase() !== kategoriFilter.trim().toUpperCase()) return false;
       if (noSuratFilter !== 'ALL' && String(tx.noSurat) !== noSuratFilter) return false;
+      if (noSuratSearch.trim() && !String(tx.noSurat || '').toLowerCase().includes(noSuratSearch.trim().toLowerCase())) return false;
 
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
@@ -178,7 +187,7 @@ export function TransactionTable({
       }
       return (b.no || 0) - (a.no || 0);
     });
-  }, [transactions, tipeFilter, yearFilter, monthFilter, jenisFilter, kategoriFilter, noSuratFilter, searchTerm]);
+  }, [transactions, tipeFilter, yearFilter, monthFilter, jenisFilter, kategoriFilter, noSuratFilter, noSuratSearch, searchTerm]);
 
   // Total pages & pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
@@ -201,6 +210,7 @@ export function TransactionTable({
     setJenisFilter('ALL');
     setKategoriFilter('ALL');
     setNoSuratFilter('ALL');
+    setNoSuratSearch('');
     setTipeFilter('ALL');
     setCurrentPage(1);
   };
@@ -631,10 +641,40 @@ export function TransactionTable({
 
         {/* Secondary Filter Line & Reset */}
         <div className="flex flex-wrap items-center justify-between pt-2.5 border-t border-slate-100 dark:border-slate-800 gap-2">
-          <div className="flex items-center space-x-2 text-xs">
-            <span className="text-slate-500 dark:text-slate-400 flex items-center font-medium">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-slate-500 dark:text-slate-400 flex items-center font-medium shrink-0">
               <Filter className="w-3.5 h-3.5 mr-1 text-indigo-500" /> Filter No. Surat:
             </span>
+
+            {/* Input Pencarian Khusus No. Surat */}
+            <div className="relative flex items-center min-w-[170px] sm:w-52">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Cari No. Surat..."
+                value={noSuratSearch}
+                onChange={(e) => {
+                  setNoSuratSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              {noSuratSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNoSuratSearch('');
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded-full cursor-pointer"
+                  title="Hapus pencarian No. Surat"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Select Dropdown No Surat */}
             <select
               value={noSuratFilter}
               onChange={(e) => {
@@ -647,10 +687,12 @@ export function TransactionTable({
                   onSelectAll([]);
                 }
               }}
-              className="py-1.5 px-2.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white max-w-xs truncate"
+              className="py-1.5 px-2.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white max-w-xs truncate font-medium"
             >
-              <option value="ALL">-- Semua No Surat --</option>
-              {noSuratList.map((ns, idx) => (
+              <option value="ALL">
+                {noSuratSearch ? `-- Hasil Cari (${filteredNoSuratList.length}) --` : `-- Semua No Surat (${noSuratList.length}) --`}
+              </option>
+              {filteredNoSuratList.map((ns, idx) => (
                 <option key={`ns-${ns}-${idx}`} value={ns}>
                   {ns}
                 </option>
@@ -661,7 +703,7 @@ export function TransactionTable({
               <button
                 id="btn-si-for-nosurat"
                 onClick={() => onGenerateSIForNoSurat(noSuratFilter)}
-                className="inline-flex items-center px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-2xs transition-colors"
+                className="inline-flex items-center px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-2xs transition-colors shrink-0"
               >
                 <FileText className="w-3.5 h-3.5 mr-1" />
                 Cetak SI No. Surat Ini
@@ -687,7 +729,7 @@ export function TransactionTable({
               Print Hasil Filter ({filteredTransactions.length})
             </button>
 
-            {(searchTerm || yearFilter !== 'ALL' || monthFilter !== 'ALL' || jenisFilter !== 'ALL' || kategoriFilter !== 'ALL' || noSuratFilter !== 'ALL' || tipeFilter !== 'ALL') && (
+            {(searchTerm || noSuratSearch || yearFilter !== 'ALL' || monthFilter !== 'ALL' || jenisFilter !== 'ALL' || kategoriFilter !== 'ALL' || noSuratFilter !== 'ALL' || tipeFilter !== 'ALL') && (
               <button
                 id="btn-reset-filters"
                 onClick={resetFilters}
