@@ -452,53 +452,7 @@ export function TransactionTable({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header & Action Controls - Bento Style */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center space-x-3.5">
-          <div className="w-11 h-11 bg-indigo-50 dark:bg-indigo-950/80 rounded-2xl text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-900/50">
-            <FileSpreadsheet className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Database Transaksi BOSP
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-              Total {filteredTransactions.length} dari {transactions.length} data transaksi terdaftar
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            id="btn-school-settings"
-            onClick={onOpenSettings}
-            className="inline-flex items-center px-3.5 py-2.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700/80 cursor-pointer"
-          >
-            <Building2 className="w-4 h-4 mr-1.5 text-indigo-600 dark:text-indigo-400" />
-            Kop & TTD
-          </button>
-
-          <button
-            id="btn-import-export"
-            onClick={onOpenImportExport}
-            className="inline-flex items-center px-3.5 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700/80 cursor-pointer"
-          >
-            <Cloud className="w-4 h-4 mr-1.5 text-indigo-600 dark:text-indigo-400" />
-            Database / Google Sheets
-          </button>
-
-          <button
-            id="btn-add-transaction"
-            onClick={onAddNew}
-            className="inline-flex items-center px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-colors"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Tambah Transaksi
-          </button>
-        </div>
-      </div>
-
+    <div id="database-transaksi-bosp" className="space-y-6">
       {/* Filter Toolbar */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3.5">
         

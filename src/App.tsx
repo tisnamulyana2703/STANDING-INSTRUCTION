@@ -17,7 +17,7 @@ import { DemoLimitModal } from './components/DemoLimitModal';
 import { getStoredLicenseInfo, verifySerialNumber, getMachineId } from './utils/licenseUtils';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
-import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck } from 'lucide-react';
+import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck, FileSpreadsheet, Database, Plus } from 'lucide-react';
 import { sanitizeSchoolSettingsForSync, ensureTransactionIds } from './utils/googleAppsScript';
 
 const MAX_DEMO_TRANSACTIONS = 3;
@@ -418,10 +418,14 @@ export default function App() {
               )}
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
                   {schoolSettings.namaSekolah || 'SD NEGERI CIBURIAL'}
                 </h1>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-indigo-100 dark:bg-indigo-950/90 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black uppercase tracking-wide">
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  DATABASE TRANSAKSI BOSP
+                </span>
                 <div className={`hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-semibold ${
                   isActivated
                     ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800'
@@ -437,7 +441,25 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleAddNewTransaction}
+              className="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              title="Tambah Transaksi BOSP Baru"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Transaksi</span>
+            </button>
+
+            <button
+              onClick={() => setIsImportExportModalOpen(true)}
+              className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer"
+              title="Kelola Database Transaksi BOSP & Integrasi Google Spreadsheet"
+            >
+              <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span className="hidden sm:inline">Database Spreadsheet</span>
+            </button>
+
             <button
               onClick={() => setIsActivationModalOpen(true)}
               className={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border ${
@@ -449,15 +471,6 @@ export default function App() {
             >
               <KeyRound className="w-4 h-4" />
               <span className="hidden sm:inline">{isActivated ? 'Lisensi Aktif' : 'Aktivasi Lisensi'}</span>
-            </button>
-
-            <button
-              onClick={() => setIsImportExportModalOpen(true)}
-              className="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-              title="Integrasi Database Google Spreadsheet & Apps Script"
-            >
-              <Cloud className="w-4 h-4" />
-              <span className="hidden sm:inline">Database Spreadsheet</span>
             </button>
 
             <button
