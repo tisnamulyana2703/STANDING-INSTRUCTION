@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Transaction, SchoolSettings, Vendor } from './types';
+import { Transaction, SchoolSettings, Vendor, HonorRecipient } from './types';
 import { INITIAL_TRANSACTIONS } from './data/initialTransactions';
 import { DEFAULT_SCHOOL_SETTINGS } from './data/defaultSettings';
 import { DEFAULT_VENDORS } from './data/defaultVendors';
+import { DEFAULT_HONOR_RECIPIENTS } from './data/defaultHonorRecipients';
 import { TransactionTable } from './components/TransactionTable';
 import { StandingInstructionModal } from './components/StandingInstructionModal';
 import { AddEditTransactionModal } from './components/AddEditTransactionModal';
 import { SchoolSettingsModal } from './components/SchoolSettingsModal';
 import { CategoryManagementModal, DEFAULT_CATEGORIES } from './components/CategoryManagementModal';
+import { HonorManagementModal } from './components/HonorManagementModal';
+import { BatchHonorModal } from './components/BatchHonorModal';
 import { ImportExportModal } from './components/ImportExportModal';
 import { ActivationModal } from './components/ActivationModal';
 import { DemoLimitModal } from './components/DemoLimitModal';
 import { getStoredLicenseInfo, verifySerialNumber, getMachineId } from './utils/licenseUtils';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
-import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles } from 'lucide-react';
+import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck } from 'lucide-react';
 import { sanitizeSchoolSettingsForSync, ensureTransactionIds } from './utils/googleAppsScript';
 
 const MAX_DEMO_TRANSACTIONS = 3;
@@ -86,6 +89,21 @@ export default function App() {
     return DEFAULT_CATEGORIES;
   });
 
+  const [honorRecipients, setHonorRecipients] = useState<HonorRecipient[]>(() => {
+    const saved = localStorage.getItem('bosp_honor_recipients_db');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse honor recipients:', e);
+      }
+    }
+    return DEFAULT_HONOR_RECIPIENTS;
+  });
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // License Activation State
@@ -102,6 +120,8 @@ export default function App() {
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isHonorSettingsModalOpen, setIsHonorSettingsModalOpen] = useState(false);
+  const [isBatchHonorModalOpen, setIsBatchHonorModalOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<'school' | 'vendors' | 'categories'>('school');
   const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
 
@@ -123,6 +143,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('bosp_categories', JSON.stringify(categories));
   }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem('bosp_honor_recipients_db', JSON.stringify(honorRecipients));
+  }, [honorRecipients]);
 
   // Helper to push to Google Sheets automatically if URL exists
   const syncToGoogleSheets = async (
@@ -279,6 +303,22 @@ export default function App() {
     syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
   };
 
+  const handleSaveBatchTransactions = (newTxs: Transaction[]) => {
+    const safePrev = ensureTransactionIds(transactions);
+    let updatedTxList = [...newTxs, ...safePrev];
+
+    if (!isActivated && updatedTxList.length > MAX_DEMO_TRANSACTIONS) {
+      updatedTxList = updatedTxList.slice(0, MAX_DEMO_TRANSACTIONS);
+      setTransactions(updatedTxList);
+      syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
+      setIsDemoLimitModalOpen(true);
+      return;
+    }
+
+    setTransactions(updatedTxList);
+    syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
+  };
+
   const handleDeleteTransaction = (id: string | number) => {
     const strId = String(id || '').trim();
     if (!strId) {
@@ -421,6 +461,24 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => setIsHonorSettingsModalOpen(true)}
+              className="px-3 py-2 text-xs font-bold text-amber-900 dark:text-amber-200 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 rounded-xl transition-colors border border-amber-300 dark:border-amber-800 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Pengaturan Master Data Honorarium Guru & Tendik"
+            >
+              <UserCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="hidden sm:inline">Master Honor</span>
+            </button>
+
+            <button
+              onClick={() => setIsBatchHonorModalOpen(true)}
+              className="px-3 py-2 text-xs font-black text-slate-950 bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              title="Input Massal Honor Guru & Staff Sekaligus"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden md:inline">Input Massal Honor</span>
+            </button>
+
+            <button
               onClick={() => {
                 setSettingsInitialTab('vendors');
                 setIsSettingsModalOpen(true);
@@ -509,6 +567,20 @@ export default function App() {
             setEditingTx(tx);
             setIsAddEditModalOpen(true);
           }}
+          onDuplicate={(tx) => {
+            if (!isActivated && transactions.length >= MAX_DEMO_TRANSACTIONS) {
+              setIsDemoLimitModalOpen(true);
+              return;
+            }
+            const nextNumber = transactions.length > 0 ? Math.max(...transactions.map((t) => t.no || 0)) + 1 : 1;
+            const duplicateTx: Transaction = {
+              ...tx,
+              id: '', // Strip ID so it creates a new entry
+              no: nextNumber, // Auto assign next available sequence number
+            };
+            setEditingTx(duplicateTx);
+            setIsAddEditModalOpen(true);
+          }}
           onDelete={handleDeleteTransaction}
           onBulkDelete={handleBulkDeleteTransactions}
           onOpenImportExport={() => setIsImportExportModalOpen(true)}
@@ -542,12 +614,16 @@ export default function App() {
         nextNo={transactions.length > 0 ? Math.max(...transactions.map((t) => t.no || 0)) + 1 : 1}
         vendors={vendors}
         categories={categories}
+        honorRecipients={honorRecipients}
         onOpenVendorSettings={() => {
           setSettingsInitialTab('vendors');
           setIsSettingsModalOpen(true);
         }}
         onOpenCategoryManagement={() => {
           setIsCategoryModalOpen(true);
+        }}
+        onOpenHonorSettings={() => {
+          setIsHonorSettingsModalOpen(true);
         }}
       />
 
@@ -625,6 +701,28 @@ export default function App() {
         }}
         currentCount={transactions.length}
         maxLimit={MAX_DEMO_TRANSACTIONS}
+      />
+
+      {/* 8. MASTER HONOR MANAGEMENT MODAL */}
+      <HonorManagementModal
+        isOpen={isHonorSettingsModalOpen}
+        onClose={() => setIsHonorSettingsModalOpen(false)}
+        honorRecipients={honorRecipients}
+        onSaveHonorRecipients={(newRecipients) => {
+          setHonorRecipients(newRecipients);
+        }}
+        onOpenBatchModal={() => setIsBatchHonorModalOpen(true)}
+      />
+
+      {/* 9. BATCH HONOR TRANSACTIONS ENTRY MODAL */}
+      <BatchHonorModal
+        isOpen={isBatchHonorModalOpen}
+        onClose={() => setIsBatchHonorModalOpen(false)}
+        honorRecipients={honorRecipients}
+        schoolSettings={schoolSettings}
+        nextNo={transactions.length > 0 ? Math.max(...transactions.map((t) => t.no || 0)) + 1 : 1}
+        onSaveBatchTransactions={handleSaveBatchTransactions}
+        onOpenHonorSettings={() => setIsHonorSettingsModalOpen(true)}
       />
     </div>
   );

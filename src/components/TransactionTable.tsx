@@ -19,7 +19,8 @@ import {
   Download,
   Cloud,
   Printer,
-  X
+  X,
+  Copy
 } from 'lucide-react';
 
 interface TransactionTableProps {
@@ -33,6 +34,7 @@ interface TransactionTableProps {
   onGenerateSIForNoSurat: (noSurat: string) => void;
   onAddNew: () => void;
   onEdit: (tx: Transaction) => void;
+  onDuplicate: (tx: Transaction) => void;
   onDelete: (id: string) => void;
   onBulkDelete?: () => void;
   onOpenImportExport: () => void;
@@ -50,6 +52,7 @@ export function TransactionTable({
   onGenerateSIForNoSurat,
   onAddNew,
   onEdit,
+  onDuplicate,
   onDelete,
   onBulkDelete,
   onOpenImportExport,
@@ -904,15 +907,23 @@ export function TransactionTable({
                         <div className="flex items-center justify-center space-x-1">
                           <button
                             onClick={() => onEdit(tx)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                             title="Edit Record"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
 
                           <button
+                            onClick={() => onDuplicate(tx)}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/60 dark:hover:text-amber-400 rounded-lg transition-colors cursor-pointer"
+                            title="Duplikat Transaksi (Tanggal & No. Surat Sama)"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
                             onClick={() => onDelete(String(tx.id || tx.no))}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                             title="Hapus Record"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

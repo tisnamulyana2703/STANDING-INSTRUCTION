@@ -33,6 +33,19 @@ export interface Vendor {
   npwp?: string;
 }
 
+export interface HonorRecipient {
+  id: string;
+  namaPenerima: string;
+  jabatan?: string;
+  noRekPenerima: string;
+  namaBank: string;
+  netto: number;
+  pph?: string;
+  ppn?: string;
+  keteranganDefault?: string;
+  kategoriDefault?: string;
+}
+
 export interface OfficerInfo {
   nama: string;
   jabatan: string;
