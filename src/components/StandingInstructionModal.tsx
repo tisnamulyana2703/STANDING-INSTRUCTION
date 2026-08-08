@@ -148,9 +148,30 @@ export function StandingInstructionModal({
     return [];
   }, [config.nomorSurat, selectedItems, allTransactions]);
 
+  // Check for items missing No. Rekening
+  const itemsMissingNoRek = useMemo(() => {
+    return filteredItemsForDoc.filter((item) => {
+      const noRek = (item.noRekPenerima || '').trim();
+      return !noRek || noRek === '-';
+    });
+  }, [filteredItemsForDoc]);
+
   if (!isOpen) return null;
 
   const handleDownloadPdf = async () => {
+    if (itemsMissingNoRek.length > 0) {
+      const recipientNames = itemsMissingNoRek
+        .map((item, idx) => `${idx + 1}. ${item.namaPenerima || 'Penerima Tanpa Nama'}`)
+        .join('\n');
+      alert(
+        `⚠️ DOKUMEN TIDAK BISA DIUNDUH!\n\n` +
+        `Terdapat ${itemsMissingNoRek.length} penerima dalam Surat Standing Instruction ini yang Nomor Rekeningnya belum diisi:\n\n` +
+        `${recipientNames}\n\n` +
+        `Mohon lengkapi Nomor Rekening seluruh penerima melalui tombol Edit pada Tabel Transaksi sebelum mengunduh PDF.`
+      );
+      return;
+    }
+
     try {
       setIsExporting(true);
       const cleanSuratNum = config.nomorSurat.replace(/[\/\\]/g, '_');
@@ -170,6 +191,19 @@ export function StandingInstructionModal({
   };
 
   const handlePrint = () => {
+    if (itemsMissingNoRek.length > 0) {
+      const recipientNames = itemsMissingNoRek
+        .map((item, idx) => `${idx + 1}. ${item.namaPenerima || 'Penerima Tanpa Nama'}`)
+        .join('\n');
+      alert(
+        `⚠️ DOKUMEN TIDAK BISA DICETAK!\n\n` +
+        `Terdapat ${itemsMissingNoRek.length} penerima dalam Surat Standing Instruction ini yang Nomor Rekeningnya belum diisi:\n\n` +
+        `${recipientNames}\n\n` +
+        `Mohon lengkapi Nomor Rekening seluruh penerima melalui tombol Edit pada Tabel Transaksi sebelum mencetak Surat Standing Instruction.`
+      );
+      return;
+    }
+
     printDocument('standing-instruction-document', {
       marginTop: config.marginTop,
       marginBottom: config.marginBottom,
@@ -209,17 +243,25 @@ export function StandingInstructionModal({
             <button
               id="btn-print-si"
               onClick={handlePrint}
-              className="inline-flex items-center px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700/80 cursor-pointer"
+              className={`inline-flex items-center px-4 py-2.5 text-xs font-semibold rounded-xl transition-colors border cursor-pointer ${
+                itemsMissingNoRek.length > 0
+                  ? 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100'
+                  : 'text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-slate-200/80 dark:border-slate-700/80'
+              }`}
             >
               <Printer className="w-4 h-4 mr-1.5" />
-              Cetak Document
+              Cetak Document {itemsMissingNoRek.length > 0 ? '(⚠️ Belum Bisa)' : ''}
             </button>
 
             <button
               id="btn-download-pdf-si"
               onClick={handleDownloadPdf}
               disabled={isExporting}
-              className="inline-flex items-center px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+              className={`inline-flex items-center px-4 py-2.5 text-xs font-bold rounded-xl shadow-xs disabled:opacity-50 transition-colors cursor-pointer ${
+                itemsMissingNoRek.length > 0
+                  ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
             >
               {isExporting ? (
                 <>
@@ -229,7 +271,7 @@ export function StandingInstructionModal({
               ) : (
                 <>
                   <Download className="w-4 h-4 mr-1.5" />
-                  Unduh PDF
+                  Unduh PDF {itemsMissingNoRek.length > 0 ? '(⚠️ Belum Bisa)' : ''}
                 </>
               )}
             </button>
@@ -242,6 +284,22 @@ export function StandingInstructionModal({
             </button>
           </div>
         </div>
+
+        {/* WARNING BANNER WHEN NO REKENING IS MISSING */}
+        {itemsMissingNoRek.length > 0 && (
+          <div className="bg-rose-600 text-white px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs shadow-inner">
+            <div className="flex items-center gap-2.5 font-bold">
+              <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0 animate-bounce" />
+              <div>
+                <span className="font-extrabold text-amber-200">⚠️ TIDAK BISA DICETAK: </span>
+                <span>Terdapat {itemsMissingNoRek.length} penerima yang Nomor Rekeningnya masih kosong ({itemsMissingNoRek.map(i => i.namaPenerima).join(', ')}).</span>
+              </div>
+            </div>
+            <span className="text-[11px] bg-white text-rose-800 font-extrabold px-3 py-1 rounded-lg border border-rose-200 shadow-2xs">
+              Lengkapi No. Rekening Melalui Tombol Edit
+            </span>
+          </div>
+        )}
 
         {/* CONTENT SPLIT: LEFT FORM SETTINGS, RIGHT LIVE A4 DOCUMENT */}
         <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">

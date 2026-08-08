@@ -403,7 +403,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 pb-16">
       
       {/* HEADER SECTION - BENTO STYLE */}
-      <header className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sticky top-0 z-30">
+      <header className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 pt-4 sticky top-0 z-30">
         <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-1">
@@ -513,7 +513,7 @@ export default function App() {
       </header>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+      <main className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 pt-6 space-y-6">
         
         {/* DEMO MODE BANNER (Shown if not activated) */}
         {!isActivated && (

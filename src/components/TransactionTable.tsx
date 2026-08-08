@@ -20,7 +20,9 @@ import {
   Cloud,
   Printer,
   X,
-  Copy
+  Copy,
+  AlertTriangle,
+  CreditCard
 } from 'lucide-react';
 
 interface TransactionTableProps {
@@ -191,6 +193,14 @@ export function TransactionTable({
       return (b.no || 0) - (a.no || 0);
     });
   }, [transactions, tipeFilter, yearFilter, monthFilter, jenisFilter, kategoriFilter, noSuratFilter, noSuratSearch, searchTerm]);
+
+  // Count missing No. Rekening transactions for warning banner
+  const missingNoRekCount = useMemo(() => {
+    return filteredTransactions.filter((tx) => {
+      const noRek = (tx.noRekPenerima || '').trim();
+      return !noRek || noRek === '-';
+    }).length;
+  }, [filteredTransactions]);
 
   // Total pages & pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
@@ -773,13 +783,32 @@ export function TransactionTable({
         </div>
       )}
 
+      {/* WARNING BANNER FOR MISSING NO REKENING */}
+      {missingNoRekCount > 0 && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-amber-500/10 border-2 border-amber-400 dark:border-amber-700 p-4 rounded-3xl flex flex-wrap items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-3 text-xs text-amber-900 dark:text-amber-200">
+            <div className="p-2.5 bg-amber-500 text-white rounded-2xl font-bold shrink-0 shadow-sm">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-sm text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                ⚠️ INFORMASI KELENGKAPAN REKENING PENERIMA
+              </h4>
+              <p className="text-amber-900 dark:text-amber-200 font-semibold mt-0.5">
+                Terdapat <span className="bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded-md font-black font-mono border border-amber-300 dark:border-amber-800">{missingNoRekCount} transaksi</span> yang Nomor Rekeningnya masih kosong. Transaksi tersimpan dengan aman, namun <strong className="text-rose-600 dark:text-rose-400">belum bisa dicetak (Surat Standing Instruction BJB)</strong> sebelum No. Rekening dilengkapi melalui tombol Edit.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Table Container - Bento Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto w-full">
           <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 border-collapse">
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="p-3.5 w-10 text-center">
+                <th className="px-2.5 py-3 w-9 text-center">
                   <button
                     type="button"
                     onClick={() => {
@@ -799,15 +828,20 @@ export function TransactionTable({
                     )}
                   </button>
                 </th>
-                <th className="p-3.5 w-12 text-center">NO</th>
-                <th className="p-3.5">TANGGAL</th>
-                <th className="p-3.5">JENIS TRANSAKSI</th>
-                <th className="p-3.5">NO. SURAT</th>
-                <th className="p-3.5">NAMA PENERIMA</th>
-                <th className="p-3.5">NO. REK & BANK</th>
-                <th className="p-3.5 text-right">NETTO (RP)</th>
-                <th className="p-3.5">KETERANGAN / VENDOR</th>
-                <th className="p-3.5 w-24 text-center">AKSI</th>
+                <th className="px-2 py-3 w-10 text-center">NO</th>
+                <th className="px-2.5 py-3 whitespace-nowrap">TANGGAL</th>
+                <th className="px-2.5 py-3 whitespace-nowrap">JENIS TRANSAKSI</th>
+                <th className="px-2.5 py-3 whitespace-nowrap">NO. SURAT</th>
+                <th className="px-2.5 py-3 min-w-[140px]">NAMA PENERIMA</th>
+                <th className="px-2.5 py-3 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1.5 bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800 font-bold">
+                    <CreditCard className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    NO. REK & BANK
+                  </span>
+                </th>
+                <th className="px-2.5 py-3 text-right whitespace-nowrap">NETTO (RP)</th>
+                <th className="px-2.5 py-3 min-w-[160px] max-w-xs">KETERANGAN / VENDOR</th>
+                <th className="px-2.5 py-3 w-20 text-center whitespace-nowrap">AKSI</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
@@ -834,7 +868,7 @@ export function TransactionTable({
                         isSelected ? 'bg-indigo-50/60 dark:bg-indigo-950/40' : ''
                       }`}
                     >
-                      <td className="p-3.5 text-center">
+                      <td className="px-2.5 py-2.5 text-center">
                         <button
                           type="button"
                           onClick={() => onToggleSelect(txIdStr)}
@@ -847,16 +881,16 @@ export function TransactionTable({
                           )}
                         </button>
                       </td>
-                      <td className="p-3.5 text-center font-mono text-slate-400">{tx.no}</td>
-                      <td className="p-3.5 whitespace-nowrap font-mono text-[11px] text-slate-600 dark:text-slate-300">{tx.tanggal}</td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        <div className="flex flex-col items-start gap-1">
+                      <td className="px-2 py-2.5 text-center font-mono text-slate-400 text-[11px]">{tx.no}</td>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap font-mono text-[11px] text-slate-600 dark:text-slate-300">{tx.tanggal}</td>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap">
+                        <div className="flex flex-col items-start gap-0.5">
                           {isMasuk ? (
-                            <span className="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800">
+                            <span className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800">
                               🟢 MASUK
                             </span>
                           ) : (
-                            <span className="inline-block px-2 py-0.5 rounded-md text-[9px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800">
+                            <span className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800">
                               🔴 KELUAR
                             </span>
                           )}
@@ -865,7 +899,7 @@ export function TransactionTable({
                           </span>
                         </div>
                       </td>
-                      <td className="p-3.5 whitespace-nowrap">
+                      <td className="px-2.5 py-2.5 whitespace-nowrap">
                         <div className="flex items-center space-x-1">
                           <span className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">
                             {tx.noSurat || '-'}
@@ -873,7 +907,7 @@ export function TransactionTable({
                           {tx.noSurat && (
                             <button
                               onClick={() => onSelectGroupNoSurat(tx.noSurat)}
-                              className="text-[9px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300 hover:bg-indigo-100 px-2 py-0.5 rounded-full font-bold transition ml-1"
+                              className="text-[9px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300 hover:bg-indigo-100 px-1.5 py-0.5 rounded-full font-bold transition ml-1"
                               title="Pilih Semua Transaksi dengan No. Surat ini"
                             >
                               Grup
@@ -881,29 +915,55 @@ export function TransactionTable({
                           )}
                         </div>
                       </td>
-                      <td className="p-3.5 font-bold text-slate-900 dark:text-white uppercase">
+                      <td className="px-2.5 py-2.5 font-bold text-slate-900 dark:text-white uppercase text-[11px] min-w-[140px] max-w-[200px] break-words">
                         {tx.namaPenerima}
                       </td>
-                      <td className="p-3.5 whitespace-nowrap font-mono text-[11px]">
-                        <div className="text-slate-800 dark:text-slate-200 font-semibold">{tx.noRekPenerima || '-'}</div>
-                        <div className="text-[10px] text-slate-400 font-sans font-bold">{tx.namaBank || 'BJB'}</div>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap font-mono text-[11px]">
+                        {(() => {
+                          const noRekStr = (tx.noRekPenerima || '').trim();
+                          const isMissing = !noRekStr || noRekStr === '-';
+                          if (isMissing) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => onEdit(tx)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-2xs hover:bg-amber-200 dark:hover:bg-amber-900 transition-all cursor-pointer"
+                                title="Klik untuk melengkapi Nomor Rekening"
+                              >
+                                <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span>⚠️ KOSONG (EDIT)</span>
+                              </button>
+                            );
+                          }
+                          return (
+                            <div className="inline-flex flex-col bg-amber-500/10 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 rounded-xl px-2 py-0.5 shadow-2xs">
+                              <div className="font-mono text-[11px] font-black text-amber-950 dark:text-amber-200 tracking-wide flex items-center gap-1">
+                                <CreditCard className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span>{noRekStr}</span>
+                              </div>
+                              <div className="text-[9px] text-amber-800 dark:text-amber-400 font-sans font-bold">
+                                🏦 {tx.namaBank || 'BJB'}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
-                      <td className={`p-3.5 text-right font-mono font-bold text-xs whitespace-nowrap ${
+                      <td className={`px-2.5 py-2.5 text-right font-mono font-bold text-xs whitespace-nowrap ${
                         isMasuk ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
                       }`}>
                         {isMasuk ? `+ ${formatRupiah(tx.netto)}` : `${formatRupiah(tx.netto)}`}
                       </td>
-                      <td className="p-3.5 max-w-xs">
+                      <td className="px-2.5 py-2.5 min-w-[150px] max-w-xs">
                         <div className="line-clamp-2 text-slate-700 dark:text-slate-300 text-[11px]">
                           {tx.keterangan || tx.deskripsiFull}
                         </div>
                         {tx.vendor && tx.vendor !== 'NON SIPLAH' && (
-                          <span className="text-[10px] text-slate-400 block italic mt-0.5">
+                          <span className="text-[9px] text-slate-400 block italic mt-0.5">
                             Vendor: {tx.vendor}
                           </span>
                         )}
                       </td>
-                      <td className="p-3.5 text-center whitespace-nowrap">
+                      <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center space-x-1">
                           <button
                             onClick={() => onEdit(tx)}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Transaction, Vendor, HonorRecipient } from '../types';
-import { X, Save, PlusCircle, Store, Settings, FolderPlus, UserCheck, Copy } from 'lucide-react';
+import { X, Save, PlusCircle, Store, Settings, FolderPlus, UserCheck, Copy, AlertTriangle, CreditCard } from 'lucide-react';
 import { DEFAULT_CATEGORIES } from './CategoryManagementModal';
 
 interface AddEditTransactionModalProps {
@@ -498,17 +498,42 @@ export function AddEditTransactionModal({
 
             {/* ROW 3: REKENING, BANK, NETTO */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  No. Rekening Penerima
+              <div className="sm:col-span-1">
+                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <CreditCard className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                    No. Rekening Penerima
+                  </span>
+                  {(!formData.noRekPenerima || formData.noRekPenerima.trim() === '' || formData.noRekPenerima.trim() === '-') ? (
+                    <span className="text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-1.5 py-0.5 rounded-md font-bold flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                      Kosong (Diperlukan saat cetak SI)
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded-md font-bold">
+                      ✓ Terisi
+                    </span>
+                  )}
                 </label>
-                <input
-                  type="text"
-                  value={formData.noRekPenerima || ''}
-                  onChange={(e) => setFormData({ ...formData, noRekPenerima: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="0122211231101"
-                />
+                <div className={`rounded-xl p-0.5 transition-all ${
+                  (!formData.noRekPenerima || formData.noRekPenerima.trim() === '' || formData.noRekPenerima.trim() === '-')
+                    ? 'border-2 border-amber-300 dark:border-amber-700 bg-amber-500/5 dark:bg-amber-950/20'
+                    : 'border-2 border-amber-400 dark:border-amber-600 bg-amber-500/10 dark:bg-amber-950/40'
+                }`}>
+                  <input
+                    type="text"
+                    value={formData.noRekPenerima || ''}
+                    onChange={(e) => setFormData({ ...formData, noRekPenerima: e.target.value })}
+                    className="w-full px-2.5 py-2 border-0 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-black focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
+                    placeholder="0122211231101 (Boleh dikosongkan dulu)"
+                  />
+                </div>
+                {(!formData.noRekPenerima || formData.noRekPenerima.trim() === '' || formData.noRekPenerima.trim() === '-') ? (
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 shrink-0 text-amber-500" />
+                    Boleh dikosongkan sementara. Wajib diisi saat mencetak Surat Standing Instruction (SI).
+                  </p>
+                ) : null}
               </div>
 
               <div>

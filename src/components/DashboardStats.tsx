@@ -12,6 +12,10 @@ import {
   Filter,
   RotateCcw,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface DashboardStatsProps {
@@ -38,6 +42,24 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
   const [selectedYear, setSelectedYear] = useState<string>('ALL');
   const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<'kategori' | 'vendor'>('kategori');
+  const [showInfographic, setShowInfographic] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('show_infografis_bosp');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleInfographic = () => {
+    setShowInfographic((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('show_infografis_bosp', String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Extract unique years from transactions
   const availableYears = useMemo(() => {
@@ -226,11 +248,11 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
       </div>
 
       {/* 2. INFOGRAFIS STRUKTUR PENGELUARAN & ANGGARAN (REKAP KATEGORI & VENDOR) */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
         
-        {/* Infografis Header & Filters */}
+        {/* Infografis Header */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             
             {/* Title */}
             <div className="flex items-center gap-2.5">
@@ -238,109 +260,146 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
                 <BarChart3 className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">
-                  Infografis Rekap Belanja BOSP
-                </h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">
+                    Infografis Rekap Belanja BOSP
+                  </h4>
+                  {!showInfographic && (
+                    <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-full font-bold">
+                      Disembunyikan
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Analisis struktur alokasi anggaran per kategori belanja dan per vendor penyedia
                 </p>
               </div>
             </div>
 
-            {/* Controls: Filters + Tabs */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              
-              {/* Year Filter Dropdown */}
-              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-2xl shadow-2xs">
-                <Filter className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Tahun:</span>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">Semua Tahun</option>
-                  {availableYears.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Month Filter Dropdown */}
-              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-2xl shadow-2xs">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Bulan:</span>
-                <select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-                >
-                  <option value="ALL">Semua Bulan</option>
-                  {INDONESIAN_MONTHS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Reset Filter Button */}
-              {hasFilterActive && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedYear('ALL');
-                    setSelectedMonth('ALL');
-                  }}
-                  className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 rounded-2xl text-xs font-bold flex items-center gap-1 hover:bg-rose-100 transition-colors"
-                  title="Reset Filter"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset</span>
-                </button>
+            {/* Hide/Show Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleInfographic}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border shadow-2xs shrink-0 ${
+                showInfographic
+                  ? 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/80'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-500 shadow-xs'
+              }`}
+              title={showInfographic ? 'Sembunyikan Infografis' : 'Tampilkan Infografis'}
+            >
+              {showInfographic ? (
+                <>
+                  <EyeOff className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <span>Sembunyikan Infografis</span>
+                  <ChevronUp className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4 text-white" />
+                  <span>Tampilkan Infografis</span>
+                  <ChevronDown className="w-4 h-4" />
+                </>
               )}
-
-              {/* View Switcher Tabs (Per Kategori vs Per Vendor) */}
-              <div className="bg-slate-200/80 dark:bg-slate-800 p-1 rounded-2xl flex items-center gap-1 border border-slate-300/60 dark:border-slate-700/60">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('kategori')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    activeTab === 'kategori'
-                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <PieChart className="w-3.5 h-3.5" />
-                  <span>Rekap Per Kategori</span>
-                  <span className="ml-0.5 px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-[10px] rounded-md font-mono">
-                    {stats.sortedCategories.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('vendor')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    activeTab === 'vendor'
-                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <Store className="w-3.5 h-3.5" />
-                  <span>Rekap Per Vendor</span>
-                  <span className="ml-0.5 px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-[10px] rounded-md font-mono">
-                    {stats.sortedVendors.length}
-                  </span>
-                </button>
-              </div>
-
-            </div>
+            </button>
           </div>
 
+          {/* Controls: Filters + Tabs (Shown when expanded) */}
+          {showInfographic && (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-2.5">
+                
+                {/* Year Filter Dropdown */}
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-2xl shadow-2xs">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Tahun:</span>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  >
+                    <option value="ALL">Semua Tahun</option>
+                    {availableYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Month Filter Dropdown */}
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-2xl shadow-2xs">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Bulan:</span>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  >
+                    <option value="ALL">Semua Bulan</option>
+                    {INDONESIAN_MONTHS.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Reset Filter Button */}
+                {hasFilterActive && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedYear('ALL');
+                      setSelectedMonth('ALL');
+                    }}
+                    className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 rounded-2xl text-xs font-bold flex items-center gap-1 hover:bg-rose-100 transition-colors cursor-pointer"
+                    title="Reset Filter"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset</span>
+                  </button>
+                )}
+
+                {/* View Switcher Tabs (Per Kategori vs Per Vendor) */}
+                <div className="bg-slate-200/80 dark:bg-slate-800 p-1 rounded-2xl flex items-center gap-1 border border-slate-300/60 dark:border-slate-700/60">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('kategori')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeTab === 'kategori'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <PieChart className="w-3.5 h-3.5" />
+                    <span>Rekap Per Kategori</span>
+                    <span className="ml-0.5 px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-[10px] rounded-md font-mono">
+                      {stats.sortedCategories.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('vendor')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeTab === 'vendor'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <Store className="w-3.5 h-3.5" />
+                    <span>Rekap Per Vendor</span>
+                    <span className="ml-0.5 px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-[10px] rounded-md font-mono">
+                      {stats.sortedVendors.length}
+                    </span>
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
           {/* Filter Status Badge */}
-          {hasFilterActive && (
+          {showInfographic && hasFilterActive && (
             <div className="inline-flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900/50 px-3 py-1 rounded-xl text-xs text-indigo-700 dark:text-indigo-300 font-medium">
               <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <span>
@@ -355,8 +414,9 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
           )}
         </div>
 
-        {/* Infografis Content Grid */}
-        <div className="p-6">
+        {/* Infografis Content Grid (Shown when expanded) */}
+        {showInfographic && (
+          <div className="p-6 border-t border-slate-100 dark:border-slate-800">
           {activeTab === 'kategori' ? (
             /* TAB 1: REKAP PER KATEGORI */
             stats.sortedCategories.length === 0 ? (
@@ -469,6 +529,7 @@ export function DashboardStats({ transactions }: DashboardStatsProps) {
             )
           )}
         </div>
+        )}
 
       </div>
 
