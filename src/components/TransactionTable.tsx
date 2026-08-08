@@ -250,7 +250,25 @@ export function TransactionTable({
     const targetItems = (selectedIds.length > 0 && itemsToPrint === filteredTransactions) ? selectedItemsList : itemsToPrint;
     const targetTitle = (selectedIds.length > 0 && itemsToPrint === filteredTransactions) ? 'LAPORAN TRANSAKSI TERPILIH BOSP' : title;
 
-    const totalAmount = targetItems.reduce((acc, curr) => acc + (curr.netto || 0), 0);
+    // Calculate incoming vs outgoing for print targets
+    let printMasuk = 0;
+    let printKeluar = 0;
+    let countMasuk = 0;
+    let countKeluar = 0;
+
+    targetItems.forEach((tx) => {
+      const isMasuk = checkIsMasuk(tx);
+      const val = Number(tx.netto) || 0;
+      if (isMasuk) {
+        countMasuk++;
+        printMasuk += val;
+      } else {
+        countKeluar++;
+        printKeluar += val;
+      }
+    });
+
+    const printSisaSaldo = printMasuk - printKeluar;
 
     const namaSekolah = settings?.namaSekolah || 'SD NEGERI CIBORANG';
     const kepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nama : (settings?.kepalaSekolah || 'NAMA KEPALA SEKOLAH');
@@ -266,12 +284,20 @@ export function TransactionTable({
 
     const tableRows = targetItems
       .map(
-        (tx, idx) => `
-      <tr style="border-bottom: 1px solid #e2e8f0; ${idx % 2 === 1 ? 'background-color: #f8fafc;' : ''}">
+        (tx, idx) => {
+          const isMasuk = checkIsMasuk(tx);
+          const bgStyle = idx % 2 === 1 ? 'background-color: #f8fafc;' : '';
+          const isMasukBadge = isMasuk
+            ? '<span style="font-size: 9px; padding: 1px 5px; background-color: #dcfce7; color: #15803d; border-radius: 4px; font-weight: bold; margin-left: 4px;">MASUK</span>'
+            : '';
+          const textColor = isMasuk ? 'color: #16a34a;' : 'color: #0f172a;';
+
+          return `
+      <tr style="border-bottom: 1px solid #e2e8f0; ${bgStyle}">
         <td style="padding: 6px 8px; text-align: center;">${idx + 1}</td>
         <td style="padding: 6px 8px; text-align: center; font-size: 10px;">${tx.tanggal || '-'}</td>
         <td style="padding: 6px 8px;">
-          <div style="font-weight: 600; color: #0f172a;">${tx.jenisTransaksi || '-'}</div>
+          <div style="font-weight: 600; color: #0f172a;">${tx.jenisTransaksi || '-'}${isMasukBadge}</div>
           <div style="font-size: 10px; color: #64748b;">${tx.kategori || ''} ${tx.siplah ? `• ${tx.siplah}` : ''}</div>
         </td>
         <td style="padding: 6px 8px;">
@@ -280,11 +306,70 @@ export function TransactionTable({
         </td>
         <td style="padding: 6px 8px; font-size: 10px; font-family: monospace;">${tx.noSurat || '-'}</td>
         <td style="padding: 6px 8px;">${tx.keterangan || '-'}</td>
-        <td style="padding: 6px 8px; text-align: right; font-weight: 700; font-family: monospace;">Rp ${formatRupiah(tx.netto)}</td>
+        <td style="padding: 6px 8px; text-align: right; font-weight: 700; font-family: monospace; ${textColor}">
+          ${isMasuk ? '+' : ''}Rp ${formatRupiah(tx.netto)}
+        </td>
       </tr>
-    `
+    `;
+        }
       )
       .join('');
+
+    let metaTotalHtml = '';
+    let summaryRowsHtml = '';
+
+    if (countMasuk > 0 && countKeluar > 0) {
+      metaTotalHtml = `
+        <div>
+          <span>Pengeluaran: <strong style="font-family: monospace;">Rp ${formatRupiah(printKeluar)}</strong></span>
+          <span style="margin-left: 8px; border-left: 1px solid #cbd5e1; padding-left: 8px;">
+            Saldo: <strong style="font-family: monospace; color: ${printSisaSaldo >= 0 ? '#16a34a' : '#dc2626'};">Rp ${formatRupiah(printSisaSaldo)}</strong>
+          </span>
+        </div>
+      `;
+      summaryRowsHtml = `
+        <tr>
+          <td><strong>Total Items:</strong></td>
+          <td class="right">${targetItems.length} Item (${countMasuk} Masuk, ${countKeluar} Keluar)</td>
+        </tr>
+        <tr>
+          <td><strong>Total Pemasukan (BOS Salur):</strong></td>
+          <td class="right" style="font-family: monospace; color: #16a34a; font-weight: 600;">Rp ${formatRupiah(printMasuk)}</td>
+        </tr>
+        <tr>
+          <td><strong>Total Pengeluaran:</strong></td>
+          <td class="right" style="font-family: monospace; color: #dc2626; font-weight: 600;">Rp ${formatRupiah(printKeluar)}</td>
+        </tr>
+        <tr style="background-color: #f8fafc; font-weight: bold; border-top: 2px solid #cbd5e1;">
+          <td><strong>SISA SALDO BOSP:</strong></td>
+          <td class="right" style="font-family: monospace; font-size: 13px; color: ${printSisaSaldo >= 0 ? '#0f172a' : '#dc2626'};">Rp ${formatRupiah(printSisaSaldo)}</td>
+        </tr>
+      `;
+    } else if (countMasuk > 0) {
+      metaTotalHtml = `<div><strong>Total Pemasukan:</strong> <span style="font-family: monospace; font-size: 13px; color: #16a34a;">Rp ${formatRupiah(printMasuk)}</span></div>`;
+      summaryRowsHtml = `
+        <tr>
+          <td><strong>Total Transaksi:</strong></td>
+          <td class="right">${targetItems.length} Item</td>
+        </tr>
+        <tr style="background-color: #f8fafc; font-weight: bold; border-top: 2px solid #cbd5e1;">
+          <td><strong>TOTAL PEMASUKAN:</strong></td>
+          <td class="right" style="font-family: monospace; font-size: 13px; color: #16a34a;">Rp ${formatRupiah(printMasuk)}</td>
+        </tr>
+      `;
+    } else {
+      metaTotalHtml = `<div><strong>Total Pengeluaran:</strong> <span style="font-family: monospace; font-size: 13px;">Rp ${formatRupiah(printKeluar)}</span></div>`;
+      summaryRowsHtml = `
+        <tr>
+          <td><strong>Total Transaksi:</strong></td>
+          <td class="right">${targetItems.length} Item</td>
+        </tr>
+        <tr style="background-color: #f8fafc; font-weight: bold; border-top: 2px solid #cbd5e1;">
+          <td><strong>TOTAL PENGELUARAN:</strong></td>
+          <td class="right" style="font-family: monospace; font-size: 13px; color: #0f172a;">Rp ${formatRupiah(printKeluar)}</td>
+        </tr>
+      `;
+    }
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -401,7 +486,7 @@ export function TransactionTable({
               ${jenisFilter !== 'ALL' ? `Jenis: ${jenisFilter} | ` : ''}
               ${noSuratFilter !== 'ALL' ? `No Surat: ${noSuratFilter}` : 'Semua Data'}
             </div>
-            <div><strong>Total Nominal:</strong> <span style="font-family: monospace; font-size: 13px;">Rp ${formatRupiah(totalAmount)}</span></div>
+            ${metaTotalHtml}
           </div>
 
           <table>
@@ -423,14 +508,7 @@ export function TransactionTable({
 
           <div class="summary-box">
             <table class="summary-table">
-              <tr>
-                <td><strong>Total Transaksi:</strong></td>
-                <td class="right">${targetItems.length} Item</td>
-              </tr>
-              <tr style="background-color: #f8fafc; font-weight: bold;">
-                <td><strong>TOTAL NETTO:</strong></td>
-                <td class="right" style="font-family: monospace; font-size: 13px; color: #0f172a;">Rp ${formatRupiah(totalAmount)}</td>
-              </tr>
+              ${summaryRowsHtml}
             </table>
           </div>
 
