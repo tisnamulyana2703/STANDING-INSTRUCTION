@@ -72,26 +72,64 @@ export function TransactionTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
-  // Extract counts and sums for Masuk vs Keluar
-  const typeCounts = useMemo(() => {
+  // Helper to detect incoming transactions
+  function checkIsMasuk(tx: Transaction): boolean {
+    if (tx.tipeTransaksi === 'MASUK') return true;
+    if (tx.tipeTransaksi === 'KELUAR') return false;
+    const jenis = String(tx.jenisTransaksi || '').toUpperCase();
+    const siplah = String(tx.siplah || '').toUpperCase();
+    const vendor = String(tx.vendor || '').toUpperCase().trim();
+    return (
+      jenis.includes('SALUR') ||
+      jenis.includes('PEMASUKAN') ||
+      siplah === 'BOS SALUR' ||
+      vendor === 'BOS SALUR'
+    );
+  }
+
+  // Filter transactions based on active dropdowns & search terms (except tipeFilter)
+  const baseFilteredTransactions = useMemo(() => {
+    return transactions.filter((tx) => {
+      if (yearFilter !== 'ALL' && String(tx.tahun) !== yearFilter) return false;
+      if (monthFilter !== 'ALL' && String(tx.bulan) !== monthFilter) return false;
+      if (jenisFilter !== 'ALL' && String(tx.jenisTransaksi) !== jenisFilter) return false;
+      if (kategoriFilter !== 'ALL' && String(tx.kategori || '').trim().toUpperCase() !== kategoriFilter.trim().toUpperCase()) return false;
+      if (noSuratFilter !== 'ALL' && String(tx.noSurat) !== noSuratFilter) return false;
+      if (noSuratSearch.trim() && !String(tx.noSurat || '').toLowerCase().includes(noSuratSearch.trim().toLowerCase())) return false;
+
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const match =
+          String(tx.namaPenerima || '').toLowerCase().includes(q) ||
+          String(tx.noSurat || '').toLowerCase().includes(q) ||
+          String(tx.noRekPenerima || '').toLowerCase().includes(q) ||
+          String(tx.keterangan || '').toLowerCase().includes(q) ||
+          String(tx.vendor || '').toLowerCase().includes(q) ||
+          String(tx.noPo || '').toLowerCase().includes(q) ||
+          String(tx.kategori || '').toLowerCase().includes(q);
+        if (!match) return false;
+      }
+
+      return true;
+    });
+  }, [transactions, yearFilter, monthFilter, jenisFilter, kategoriFilter, noSuratFilter, noSuratSearch, searchTerm]);
+
+  // Compute counts and sums for Masuk vs Keluar on the current filtered dataset
+  const filteredStats = useMemo(() => {
     let countMasuk = 0;
     let sumMasuk = 0;
     let countKeluar = 0;
     let sumKeluar = 0;
 
-    transactions.forEach((tx) => {
-      const isMasuk =
-        tx.tipeTransaksi === 'MASUK' ||
-        (tx.jenisTransaksi || '').toUpperCase().includes('SALUR') ||
-        (tx.jenisTransaksi || '').toUpperCase().includes('PEMASUKAN') ||
-        tx.siplah === 'BOS SALUR';
-
+    baseFilteredTransactions.forEach((tx) => {
+      const isMasuk = checkIsMasuk(tx);
+      const amount = Number(tx.netto) || 0;
       if (isMasuk) {
         countMasuk += 1;
-        sumMasuk += tx.netto || 0;
+        sumMasuk += amount;
       } else {
         countKeluar += 1;
-        sumKeluar += tx.netto || 0;
+        sumKeluar += amount;
       }
     });
 
@@ -100,9 +138,10 @@ export function TransactionTable({
       sumMasuk,
       countKeluar,
       sumKeluar,
-      countAll: transactions.length,
+      countAll: baseFilteredTransactions.length,
+      sisaSaldo: sumMasuk - sumKeluar,
     };
-  }, [transactions]);
+  }, [baseFilteredTransactions]);
 
   // Extract unique filter options
   const years = useMemo(() => {
@@ -148,38 +187,12 @@ export function TransactionTable({
     return new Date(dmy).getTime() || 0;
   }
 
-  // Filter & sort transactions (newest on top)
+  // Final filtered & sorted transactions list (incorporating tipeFilter)
   const filteredTransactions = useMemo(() => {
-    const list = transactions.filter((tx) => {
-      const isMasuk =
-        tx.tipeTransaksi === 'MASUK' ||
-        String(tx.jenisTransaksi || '').toUpperCase().includes('SALUR') ||
-        String(tx.jenisTransaksi || '').toUpperCase().includes('PEMASUKAN') ||
-        tx.siplah === 'BOS SALUR';
-
+    const list = baseFilteredTransactions.filter((tx) => {
+      const isMasuk = checkIsMasuk(tx);
       if (tipeFilter === 'MASUK' && !isMasuk) return false;
       if (tipeFilter === 'KELUAR' && isMasuk) return false;
-
-      if (yearFilter !== 'ALL' && String(tx.tahun) !== yearFilter) return false;
-      if (monthFilter !== 'ALL' && String(tx.bulan) !== monthFilter) return false;
-      if (jenisFilter !== 'ALL' && String(tx.jenisTransaksi) !== jenisFilter) return false;
-      if (kategoriFilter !== 'ALL' && String(tx.kategori || '').trim().toUpperCase() !== kategoriFilter.trim().toUpperCase()) return false;
-      if (noSuratFilter !== 'ALL' && String(tx.noSurat) !== noSuratFilter) return false;
-      if (noSuratSearch.trim() && !String(tx.noSurat || '').toLowerCase().includes(noSuratSearch.trim().toLowerCase())) return false;
-
-      if (searchTerm.trim()) {
-        const q = searchTerm.toLowerCase();
-        const match =
-          String(tx.namaPenerima || '').toLowerCase().includes(q) ||
-          String(tx.noSurat || '').toLowerCase().includes(q) ||
-          String(tx.noRekPenerima || '').toLowerCase().includes(q) ||
-          String(tx.keterangan || '').toLowerCase().includes(q) ||
-          String(tx.vendor || '').toLowerCase().includes(q) ||
-          String(tx.noPo || '').toLowerCase().includes(q) ||
-          String(tx.kategori || '').toLowerCase().includes(q);
-        if (!match) return false;
-      }
-
       return true;
     });
 
@@ -192,7 +205,7 @@ export function TransactionTable({
       }
       return (b.no || 0) - (a.no || 0);
     });
-  }, [transactions, tipeFilter, yearFilter, monthFilter, jenisFilter, kategoriFilter, noSuratFilter, noSuratSearch, searchTerm]);
+  }, [baseFilteredTransactions, tipeFilter]);
 
   // Count missing No. Rekening transactions for warning banner
   const missingNoRekCount = useMemo(() => {
@@ -464,7 +477,7 @@ export function TransactionTable({
               setTipeFilter('ALL');
               setCurrentPage(1);
             }}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               tipeFilter === 'ALL'
                 ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -472,7 +485,7 @@ export function TransactionTable({
           >
             <span>Semua Transaksi</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-200/60 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
-              {typeCounts.countAll}
+              {filteredStats.countAll}
             </span>
           </button>
 
@@ -482,7 +495,7 @@ export function TransactionTable({
               setTipeFilter('KELUAR');
               setCurrentPage(1);
             }}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               tipeFilter === 'KELUAR'
                 ? 'bg-rose-600 text-white shadow-xs'
                 : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/40 hover:bg-rose-100'
@@ -490,7 +503,7 @@ export function TransactionTable({
           >
             <span>🔴 Transaksi Keluar (Pengeluaran)</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-rose-200/70 dark:bg-rose-900/80 text-rose-800 dark:text-rose-200">
-              {typeCounts.countKeluar} | Rp {formatRupiah(typeCounts.sumKeluar)}
+              {filteredStats.countKeluar} | Rp {formatRupiah(filteredStats.sumKeluar)}
             </span>
           </button>
 
@@ -500,7 +513,7 @@ export function TransactionTable({
               setTipeFilter('MASUK');
               setCurrentPage(1);
             }}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
               tipeFilter === 'MASUK'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40 hover:bg-emerald-100'
@@ -508,7 +521,7 @@ export function TransactionTable({
           >
             <span>🟢 Transaksi Masuk (BOSP Salur)</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-200/70 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200">
-              {typeCounts.countMasuk} | Rp {formatRupiah(typeCounts.sumMasuk)}
+              {filteredStats.countMasuk} | Rp {formatRupiah(filteredStats.sumMasuk)}
             </span>
           </button>
         </div>
@@ -679,11 +692,49 @@ export function TransactionTable({
           </div>
 
           <div className="flex items-center space-x-3 text-xs">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">
-              Total Filter Netto:{' '}
-              <strong className="font-mono text-slate-900 dark:text-white font-bold">
-                Rp {formatRupiah(totalFilteredAmount)}
-              </strong>
+            <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+              {tipeFilter === 'MASUK' ? (
+                <>
+                  <span>Total Netto Pemasukan:</span>
+                  <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    Rp {formatRupiah(filteredStats.sumMasuk)}
+                  </strong>
+                </>
+              ) : tipeFilter === 'KELUAR' ? (
+                <>
+                  <span>Total Netto Pengeluaran:</span>
+                  <strong className="font-mono text-slate-900 dark:text-white font-bold">
+                    Rp {formatRupiah(filteredStats.sumKeluar)}
+                  </strong>
+                </>
+              ) : filteredStats.countMasuk > 0 && filteredStats.countKeluar > 0 ? (
+                <>
+                  <span>Pengeluaran:</span>
+                  <strong className="font-mono text-slate-900 dark:text-white font-bold mr-1">
+                    Rp {formatRupiah(filteredStats.sumKeluar)}
+                  </strong>
+                  <span>| Saldo:</span>
+                  <strong className={`font-mono font-bold ${
+                    filteredStats.sisaSaldo >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400'
+                  }`}>
+                    Rp {formatRupiah(filteredStats.sisaSaldo)}
+                  </strong>
+                </>
+              ) : filteredStats.countMasuk > 0 ? (
+                <>
+                  <span>Total Netto Pemasukan:</span>
+                  <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    Rp {formatRupiah(filteredStats.sumMasuk)}
+                  </strong>
+                </>
+              ) : (
+                <>
+                  <span>Total Netto Pengeluaran:</span>
+                  <strong className="font-mono text-slate-900 dark:text-white font-bold">
+                    Rp {formatRupiah(filteredStats.sumKeluar)}
+                  </strong>
+                </>
+              )}
             </span>
 
             <button
