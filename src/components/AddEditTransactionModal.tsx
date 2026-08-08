@@ -22,6 +22,53 @@ const INDONESIAN_MONTHS = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
+const ROMAN_MONTHS_MAP: Record<string, string> = {
+  Januari: 'I',
+  Februari: 'II',
+  Maret: 'III',
+  April: 'IV',
+  Mei: 'V',
+  Juni: 'VI',
+  Juli: 'VII',
+  Agustus: 'VIII',
+  September: 'IX',
+  Oktober: 'X',
+  November: 'XI',
+  Desember: 'XII',
+};
+
+const ROMAN_MONTHS_ARRAY = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+
+export function generateNonSiplahNoPo(
+  monthName?: string,
+  yearStr?: string,
+  isoDate?: string,
+  existingXxxx?: string
+): string {
+  const random4 = existingXxxx || String(Math.floor(1000 + Math.random() * 9000));
+
+  let roman = 'I';
+  if (monthName && ROMAN_MONTHS_MAP[monthName]) {
+    roman = ROMAN_MONTHS_MAP[monthName];
+  } else if (isoDate) {
+    const parts = isoDate.split('-');
+    if (parts.length === 3) {
+      const idx = Math.max(0, Math.min(11, parseInt(parts[1], 10) - 1));
+      roman = ROMAN_MONTHS_ARRAY[idx] || 'I';
+    }
+  }
+
+  let year = yearStr;
+  if (!year && isoDate) {
+    year = isoDate.split('-')[0];
+  }
+  if (!year) {
+    year = `${new Date().getFullYear()}`;
+  }
+
+  return `trx/${random4}/${roman}/${year}`;
+}
+
 const JENIS_TRANSAKSI_OPTIONS = [
   'Pembayaran Honor',
   'Pembelanjaan Siplah',
@@ -132,6 +179,12 @@ export function AddEditTransactionModal({
         (initialData?.jenisTransaksi || '').toUpperCase().includes('PEMASUKAN') ||
         initialData?.siplah === 'BOS SALUR';
 
+      const currentSiplah = initialData?.siplah || 'Non Siplah';
+      let autoNoPo = initialData?.noPo || '';
+      if (currentSiplah === 'Non Siplah' && (!autoNoPo || autoNoPo.trim() === '')) {
+        autoNoPo = generateNonSiplahNoPo(month, year, iso);
+      }
+
       setFormData({
         ...initialData,
         id: initialData.id,
@@ -139,6 +192,7 @@ export function AddEditTransactionModal({
         tahun: initialData?.tahun || year,
         bulan: initialData?.bulan || month,
         vendor: initialData?.vendor || 'NON SIPLAH',
+        noPo: autoNoPo,
       });
     } else {
       const todayIso = new Date().toISOString().split('T')[0];
@@ -147,6 +201,7 @@ export function AddEditTransactionModal({
       const { year, month } = extractYearMonthFromIso(todayIso);
 
       const defaultVendor = vendors.find((v) => v.nama === 'NON SIPLAH') || vendors[0];
+      const defaultNoPo = generateNonSiplahNoPo(month, year, todayIso);
 
       setFormData({
         no: nextNo,
@@ -161,7 +216,7 @@ export function AddEditTransactionModal({
         ppn: '-',
         netto: 0,
         siplah: 'Non Siplah',
-        noPo: '',
+        noPo: defaultNoPo,
         keterangan: '',
         vendor: defaultVendor ? defaultVendor.nama : 'NON SIPLAH',
         vendorAddress: defaultVendor ? defaultVendor.alamat : '-',
@@ -184,27 +239,51 @@ export function AddEditTransactionModal({
     const formattedDmy = isoToDmy(newIso);
     const { year, month } = extractYearMonthFromIso(newIso);
 
-    setFormData((prev) => ({
-      ...prev,
-      tanggal: formattedDmy,
-      tahun: year,
-      bulan: month,
-    }));
+    setFormData((prev) => {
+      let updatedNoPo = prev.noPo || '';
+      if (prev.siplah === 'Non Siplah') {
+        const match = updatedNoPo.match(/^trx\/(\d{4})\//);
+        const existingXxxx = match ? match[1] : undefined;
+        updatedNoPo = generateNonSiplahNoPo(month, year, newIso, existingXxxx);
+      }
+      return {
+        ...prev,
+        tanggal: formattedDmy,
+        tahun: year,
+        bulan: month,
+        noPo: updatedNoPo,
+      };
+    });
   };
 
   const handleVendorSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedVendorName = e.target.value;
     const foundVendor = vendors.find((v) => v.nama === selectedVendorName);
+    const isSiplahVendor = selectedVendorName.toLowerCase().includes('siplah');
 
-    setFormData((prev) => ({
-      ...prev,
-      vendor: selectedVendorName,
-      vendorAddress: foundVendor?.alamat || prev.vendorAddress || '-',
-      vendorHp: foundVendor?.hp || prev.vendorHp || '-',
-      vendorNpwp: foundVendor?.npwp || prev.vendorNpwp || '-',
-      // Auto toggle Siplah status if Siplah is in vendor name or selected
-      siplah: selectedVendorName.toLowerCase().includes('siplah') ? 'Siplah' : prev.siplah,
-    }));
+    setFormData((prev) => {
+      const newSiplah = isSiplahVendor ? 'Siplah' : prev.siplah;
+      let updatedNoPo = prev.noPo || '';
+      if (newSiplah === 'Non Siplah') {
+        if (!updatedNoPo || !updatedNoPo.startsWith('trx/')) {
+          updatedNoPo = generateNonSiplahNoPo(prev.bulan, prev.tahun, dateIso);
+        }
+      } else if (newSiplah === 'Siplah') {
+        if (updatedNoPo.startsWith('trx/')) {
+          updatedNoPo = '';
+        }
+      }
+
+      return {
+        ...prev,
+        vendor: selectedVendorName,
+        vendorAddress: foundVendor?.alamat || prev.vendorAddress || '-',
+        vendorHp: foundVendor?.hp || prev.vendorHp || '-',
+        vendorNpwp: foundVendor?.npwp || prev.vendorNpwp || '-',
+        siplah: newSiplah,
+        noPo: updatedNoPo,
+      };
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -658,15 +737,28 @@ export function AddEditTransactionModal({
 
                 {/* 2. NO PO */}
                 <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    No. PO (Jika Siplah)
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>No. PO {formData.siplah === 'Non Siplah' ? '(Non-Siplah)' : '(Siplah)'}</span>
+                    {formData.siplah === 'Non Siplah' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const freshNoPo = generateNonSiplahNoPo(formData.bulan, formData.tahun, dateIso);
+                          setFormData((prev) => ({ ...prev, noPo: freshNoPo }));
+                        }}
+                        className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Acak Ulang No. PO Non Siplah"
+                      >
+                        <span>🎲 Acak No. PO</span>
+                      </button>
+                    )}
                   </label>
                   <input
                     type="text"
                     value={formData.noPo || ''}
                     onChange={(e) => setFormData({ ...formData, noPo: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="PO65AF1A4418431"
+                    placeholder={formData.siplah === 'Non Siplah' ? 'trx/xxxx/I/2026' : 'PO65AF1A4418431'}
                   />
                 </div>
 
@@ -677,7 +769,26 @@ export function AddEditTransactionModal({
                   </label>
                   <select
                     value={formData.siplah || 'Non Siplah'}
-                    onChange={(e) => setFormData({ ...formData, siplah: e.target.value })}
+                    onChange={(e) => {
+                      const newSiplah = e.target.value;
+                      setFormData((prev) => {
+                        let updatedNoPo = prev.noPo || '';
+                        if (newSiplah === 'Non Siplah') {
+                          if (!updatedNoPo || !updatedNoPo.startsWith('trx/')) {
+                            updatedNoPo = generateNonSiplahNoPo(prev.bulan, prev.tahun, dateIso);
+                          }
+                        } else if (newSiplah === 'Siplah') {
+                          if (updatedNoPo.startsWith('trx/')) {
+                            updatedNoPo = '';
+                          }
+                        }
+                        return {
+                          ...prev,
+                          siplah: newSiplah,
+                          noPo: updatedNoPo,
+                        };
+                      });
+                    }}
                     className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium"
                   >
                     <option value="Non Siplah">Non Siplah</option>
