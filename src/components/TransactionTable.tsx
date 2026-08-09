@@ -41,6 +41,7 @@ interface TransactionTableProps {
   onBulkDelete?: () => void;
   onOpenImportExport: () => void;
   onOpenSettings: () => void;
+  onOpenNonSiplahProof?: (tx?: Transaction) => void;
 }
 
 export function TransactionTable({
@@ -59,6 +60,7 @@ export function TransactionTable({
   onBulkDelete,
   onOpenImportExport,
   onOpenSettings,
+  onOpenNonSiplahProof,
 }: TransactionTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [yearFilter, setYearFilter] = useState('ALL');

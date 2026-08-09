@@ -12,12 +12,13 @@ import { CategoryManagementModal, DEFAULT_CATEGORIES } from './components/Catego
 import { HonorManagementModal } from './components/HonorManagementModal';
 import { BatchHonorModal } from './components/BatchHonorModal';
 import { ImportExportModal } from './components/ImportExportModal';
+import { NonSiplahProofModal } from './components/NonSiplahProofModal';
 import { ActivationModal } from './components/ActivationModal';
 import { DemoLimitModal } from './components/DemoLimitModal';
 import { getStoredLicenseInfo, verifySerialNumber, getMachineId } from './utils/licenseUtils';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
-import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck, FileSpreadsheet, Database, Plus } from 'lucide-react';
+import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck, FileSpreadsheet, Database, Plus, FileText } from 'lucide-react';
 import { sanitizeSchoolSettingsForSync, ensureTransactionIds } from './utils/googleAppsScript';
 
 const MAX_DEMO_TRANSACTIONS = 3;
@@ -117,6 +118,8 @@ export default function App() {
 
   // Modal States
   const [isSiModalOpen, setIsSiModalOpen] = useState(false);
+  const [isNonSiplahModalOpen, setIsNonSiplahModalOpen] = useState(false);
+  const [nonSiplahTargetTx, setNonSiplahTargetTx] = useState<Transaction[]>([]);
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -253,6 +256,31 @@ export default function App() {
       return;
     }
     setIsSiModalOpen(true);
+  };
+
+  const handleOpenNonSiplahProof = (targetTx?: Transaction) => {
+    if (targetTx) {
+      setNonSiplahTargetTx([targetTx]);
+    } else if (selectedIds.length > 0) {
+      const selectedList = transactions.filter(
+        (t) => selectedIds.includes(String(t.id)) || selectedIds.includes(String(t.no))
+      );
+      if (selectedList.length > 0) {
+        setNonSiplahTargetTx(selectedList);
+      } else {
+        setNonSiplahTargetTx(transactions);
+      }
+    } else {
+      const nonSiplahList = transactions.filter(
+        (t) =>
+          t.siplah === 'Non Siplah' ||
+          t.siplah === 'NON SIPLAH' ||
+          t.vendor === 'NON SIPLAH' ||
+          (t.vendor || '').toUpperCase().includes('NON')
+      );
+      setNonSiplahTargetTx(nonSiplahList.length > 0 ? nonSiplahList : transactions);
+    }
+    setIsNonSiplahModalOpen(true);
   };
 
   const handleAddNewTransaction = () => {
@@ -492,6 +520,15 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => handleOpenNonSiplahProof()}
+              className="px-3 py-2 text-xs font-extrabold text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer border border-amber-500/40"
+              title="Cetak & Kelola Berkas Bukti Fisik Transaksi Non-SIPLAH"
+            >
+              <FileText className="w-4 h-4 text-slate-950" />
+              <span className="hidden sm:inline">Bukti Fisik Non-SIPLAH</span>
+            </button>
+
+            <button
               onClick={() => {
                 setSettingsInitialTab('vendors');
                 setIsSettingsModalOpen(true);
@@ -598,6 +635,7 @@ export default function App() {
           onBulkDelete={handleBulkDeleteTransactions}
           onOpenImportExport={() => setIsImportExportModalOpen(true)}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onOpenNonSiplahProof={handleOpenNonSiplahProof}
         />
       </main>
 
@@ -736,6 +774,16 @@ export default function App() {
         nextNo={transactions.length > 0 ? Math.max(...transactions.map((t) => t.no || 0)) + 1 : 1}
         onSaveBatchTransactions={handleSaveBatchTransactions}
         onOpenHonorSettings={() => setIsHonorSettingsModalOpen(true)}
+      />
+
+      {/* 10. NON-SIPLAH PHYSICAL PROOF DOCUMENTS MODAL */}
+      <NonSiplahProofModal
+        isOpen={isNonSiplahModalOpen}
+        onClose={() => setIsNonSiplahModalOpen(false)}
+        transactions={nonSiplahTargetTx}
+        settings={schoolSettings}
+        vendors={vendors}
+        onSaveTransaction={handleSaveTransaction}
       />
     </div>
   );

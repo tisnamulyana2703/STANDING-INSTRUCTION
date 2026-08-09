@@ -23,6 +23,13 @@ export interface Transaction {
   deskripsiFull: string;
   kategori: string;
   tipeTransaksi?: 'MASUK' | 'KELUAR';
+  activityType?: 'HONOR' | 'KONSUMSI' | 'BARANG_JASA';
+  noUndangan?: string;
+  noBast?: string;
+  noKwitansi?: string;
+  noBkk?: string;
+  tempatAcara?: string;
+  agendaRapat?: string;
 }
 
 export interface Vendor {

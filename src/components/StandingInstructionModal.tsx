@@ -228,9 +228,9 @@ export function StandingInstructionModal({
     const totalNetto = filteredItemsForDoc.reduce((acc, curr) => acc + (Number(curr.netto) || 0), 0);
 
     const kepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nama : (settings?.kepalaSekolah || 'NAMA KEPALA SEKOLAH');
-    const nipKepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nip : (settings?.nipKepalaSekolah || '-');
+    const nipKepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nip : '-';
     const bendahara = typeof settings?.bendahara === 'object' ? settings.bendahara.nama : (settings?.bendahara || 'NAMA BENDAHARA');
-    const nipBendahara = typeof settings?.bendahara === 'object' ? settings.bendahara.nip : (settings?.nipBendahara || '-');
+    const nipBendahara = typeof settings?.bendahara === 'object' ? settings.bendahara.nip : '-';
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Standing Instruction');
