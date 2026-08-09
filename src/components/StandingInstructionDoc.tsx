@@ -260,7 +260,7 @@ export function StandingInstructionDoc({
       {/* SIGNATURE SECTION */}
       <div style={{ pageBreakInside: 'avoid' }} className="mt-4 font-sans">
         <div className="max-w-xl mx-auto">
-          <div className="text-center ml-auto w-60 mb-0.5">
+          <div className="text-center w-full mx-auto mb-1">
             <p>{settings.kotaSurat}, {formatTitimangsa(config.tanggalSurat)}</p>
             <p className="font-semibold">Pemohon</p>
           </div>

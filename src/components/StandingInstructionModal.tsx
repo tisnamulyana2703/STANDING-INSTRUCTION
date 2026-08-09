@@ -409,38 +409,40 @@ export function StandingInstructionModal({
     currentRow++;
 
     // 8. Signatures Block
-    currentRow += 2; // Leave blank rows
+    currentRow += 1;
 
+    const ttmRow = worksheet.getRow(currentRow);
+    ttmRow.height = 18;
+    worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
+    const cellTtm = ttmRow.getCell(1);
+    cellTtm.value = `${settings?.kotaSurat || 'Lembang'}, ${tglSuratFormatted}`;
+    cellTtm.font = { name: 'Arial', size: 10 };
+    cellTtm.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    currentRow++;
+    const pemohonRow = worksheet.getRow(currentRow);
+    pemohonRow.height = 18;
+    worksheet.mergeCells(`A${currentRow}:I${currentRow}`);
+    const cellPemohon = pemohonRow.getCell(1);
+    cellPemohon.value = 'Pemohon';
+    cellPemohon.font = { name: 'Arial', size: 10, bold: true };
+    cellPemohon.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    currentRow++;
     const sigRow1 = worksheet.getRow(currentRow);
     sigRow1.height = 20;
 
     worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
-    const sigLabel1 = sigRow1.getCell(1);
-    sigLabel1.value = 'Mengetahui,';
-    sigLabel1.font = { name: 'Arial', size: 10 };
-    sigLabel1.alignment = { horizontal: 'left', vertical: 'middle' };
-
-    worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
-    const sigLabel2 = sigRow1.getCell(7);
-    sigLabel2.value = 'Disetujui Oleh,';
-    sigLabel2.font = { name: 'Arial', size: 10 };
-    sigLabel2.alignment = { horizontal: 'left', vertical: 'middle' };
-
-    currentRow++;
-    const sigRow2 = worksheet.getRow(currentRow);
-    sigRow2.height = 20;
-
-    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
-    const sigRole1 = sigRow2.getCell(1);
+    const sigRole1 = sigRow1.getCell(1);
     sigRole1.value = 'Kepala Sekolah';
-    sigRole1.font = { name: 'Arial', size: 10 };
-    sigRole1.alignment = { horizontal: 'left', vertical: 'middle' };
+    sigRole1.font = { name: 'Arial', size: 10, bold: true };
+    sigRole1.alignment = { horizontal: 'center', vertical: 'middle' };
 
     worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
-    const sigRole2 = sigRow2.getCell(7);
+    const sigRole2 = sigRow1.getCell(7);
     sigRole2.value = 'Bendahara Sekolah';
-    sigRole2.font = { name: 'Arial', size: 10 };
-    sigRole2.alignment = { horizontal: 'left', vertical: 'middle' };
+    sigRole2.font = { name: 'Arial', size: 10, bold: true };
+    sigRole2.alignment = { horizontal: 'center', vertical: 'middle' };
 
     currentRow += 4; // Signature space
 
@@ -449,15 +451,15 @@ export function StandingInstructionModal({
 
     worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
     const sigName1 = sigRow3.getCell(1);
-    sigName1.value = `(${kepsek})`;
+    sigName1.value = kepsek;
     sigName1.font = { name: 'Arial', size: 10, bold: true, underline: true };
-    sigName1.alignment = { horizontal: 'left', vertical: 'middle' };
+    sigName1.alignment = { horizontal: 'center', vertical: 'middle' };
 
     worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
     const sigName2 = sigRow3.getCell(7);
-    sigName2.value = `(${bendahara})`;
+    sigName2.value = bendahara;
     sigName2.font = { name: 'Arial', size: 10, bold: true, underline: true };
-    sigName2.alignment = { horizontal: 'left', vertical: 'middle' };
+    sigName2.alignment = { horizontal: 'center', vertical: 'middle' };
 
     currentRow++;
     const sigRow4 = worksheet.getRow(currentRow);
@@ -467,13 +469,13 @@ export function StandingInstructionModal({
     const sigNip1 = sigRow4.getCell(1);
     sigNip1.value = `NIP. ${nipKepsek}`;
     sigNip1.font = { name: 'Arial', size: 10 };
-    sigNip1.alignment = { horizontal: 'left', vertical: 'middle' };
+    sigNip1.alignment = { horizontal: 'center', vertical: 'middle' };
 
     worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
     const sigNip2 = sigRow4.getCell(7);
     sigNip2.value = `NIP. ${nipBendahara}`;
     sigNip2.font = { name: 'Arial', size: 10 };
-    sigNip2.alignment = { horizontal: 'left', vertical: 'middle' };
+    sigNip2.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Write to buffer and download
     const buffer = await workbook.xlsx.writeBuffer();
