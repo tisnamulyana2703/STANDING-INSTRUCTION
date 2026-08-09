@@ -185,14 +185,14 @@ export function StandingInstructionDoc({
         <table className="w-full border-collapse text-[10px]" style={{ border: '1px solid #000000' }}>
           <thead>
             <tr style={{ backgroundColor: '#f3f4f6', color: '#000000' }} className="text-center font-bold font-sans">
-              <th style={{ border: '1px solid #000000', padding: '4px', width: '4%' }}>No</th>
-              <th style={{ border: '1px solid #000000', padding: '4px', width: '22%' }}>Nama Penerima</th>
-              <th style={{ border: '1px solid #000000', padding: '4px', width: '20%' }}>No. rekening Penerima*)</th>
-              <th style={{ border: '1px solid #000000', padding: '4px', width: '8%' }}>Bank</th>
-              <th style={{ border: '1px solid #000000', padding: '4px', width: '5%' }}>PPh</th>
-              <th style={{ border: '1px solid #000000', padding: '4px', width: '5%' }}>PPN</th>
+              <th style={{ border: '1px solid #000000', padding: '4px', width: '3.5%' }}>No</th>
+              <th style={{ border: '1px solid #000000', padding: '4px', width: '19.5%' }}>Nama Penerima</th>
+              <th style={{ border: '1px solid #000000', padding: '4px', width: '18%' }}>No. rekening Penerima*)</th>
+              <th style={{ border: '1px solid #000000', padding: '4px', width: '6%' }}>Bank</th>
+              <th style={{ border: '1px solid #000000', padding: '4px', width: '4%' }}>PPh</th>
+              <th style={{ border: '1px solid #000000', padding: '4px', width: '4%' }}>PPN</th>
               <th style={{ border: '1px solid #000000', padding: '4px', width: '15%' }}>Netto</th>
-              <th style={{ border: '1px solid #000000', padding: '4px', width: '21%' }}>Keterangan</th>
+              <th style={{ border: '1px solid #000000', padding: '4px', width: '30%' }}>Keterangan</th>
             </tr>
           </thead>
           <tbody>
@@ -200,15 +200,22 @@ export function StandingInstructionDoc({
               <tr key={item.id ? `si-doc-${item.id}-${idx}` : `si-doc-${idx}`}>
                 <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-center font-sans">{idx + 1}</td>
                 <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="font-semibold uppercase">{item.namaPenerima}</td>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px', whiteSpace: 'nowrap' }} className="text-center font-mono text-[9.5px]">{item.noRekPenerima || '-'}</td>
+                <td style={{ border: '1px solid #000000', padding: '3px 4px', whiteSpace: 'nowrap' }} className="text-center font-mono text-[11px] font-semibold text-slate-900">{item.noRekPenerima || '-'}</td>
                 <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-center font-sans font-medium">{item.namaBank || 'BJB'}</td>
                 <td style={{ border: '1px solid #000000', padding: '3px 2px' }} className="text-center">{item.pph || '-'}</td>
                 <td style={{ border: '1px solid #000000', padding: '3px 2px' }} className="text-center">{item.ppn || '-'}</td>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px', whiteSpace: 'nowrap' }} className="text-right font-semibold font-mono">
+                <td style={{ border: '1px solid #000000', padding: '3px 4px', whiteSpace: 'nowrap' }} className="text-right font-bold font-mono text-[11.5px] text-slate-900">
                   {formatRupiah(item.netto)}
                 </td>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="italic text-[9.5px]">
-                  {item.keterangan || item.deskripsiFull || purpose}
+                <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-[9.5px]">
+                  <div className="italic">
+                    {item.keterangan || item.deskripsiFull || purpose}
+                  </div>
+                  {item.vendor && item.vendor.trim() !== '' && item.vendor !== '-' && (
+                    <div className="font-bold not-italic text-[9px] uppercase text-slate-900 mt-0.5">
+                      [{item.vendor.trim()}]
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -217,7 +224,7 @@ export function StandingInstructionDoc({
               <td colSpan={6} style={{ border: '1px solid #000000', padding: '4px' }} className="text-center uppercase tracking-wider">
                 Total
               </td>
-              <td style={{ border: '1px solid #000000', padding: '4px', whiteSpace: 'nowrap' }} className="text-right font-mono text-black font-extrabold">
+              <td style={{ border: '1px solid #000000', padding: '4px', whiteSpace: 'nowrap' }} className="text-right font-mono text-black font-extrabold text-[12px]">
                 {formatRupiah(totalNetto)}
               </td>
               <td style={{ border: '1px solid #000000', padding: '4px' }}></td>

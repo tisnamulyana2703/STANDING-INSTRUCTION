@@ -3,7 +3,8 @@ import { Transaction, SchoolSettings, StandingInstructionConfig } from '../types
 import { StandingInstructionDoc } from './StandingInstructionDoc';
 import { formatTitimangsa } from '../utils/terbilang';
 import { exportToPdf, printDocument } from '../utils/pdfGenerator';
-import { Download, Printer, X, Sliders, CheckCircle2, ArrowLeft, Loader2, Filter, AlertTriangle } from 'lucide-react';
+import { Download, Printer, X, Sliders, CheckCircle2, ArrowLeft, Loader2, Filter, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import ExcelJS from 'exceljs';
 
 interface StandingInstructionModalProps {
   isOpen: boolean;
@@ -212,6 +213,284 @@ export function StandingInstructionModal({
     });
   };
 
+  const handleExportExcel = async () => {
+    if (filteredItemsForDoc.length === 0) {
+      alert('Tidak ada transaksi yang dapat diexport.');
+      return;
+    }
+
+    const namaSekolah = settings?.namaSekolah || 'SD NEGERI CIBORANG';
+    const noSurat = config.nomorSurat || '-';
+    const rawTglSurat = config.tanggalSurat || '-';
+    const tglSuratFormatted = formatTitimangsa ? formatTitimangsa(rawTglSurat) : rawTglSurat;
+    const perihal = config.perihal || 'Permohonan Pemindah Bukuan';
+    const sumberDana = config.sumberDana || 'BOSP REGULER 2026';
+    const totalNetto = filteredItemsForDoc.reduce((acc, curr) => acc + (Number(curr.netto) || 0), 0);
+
+    const kepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nama : (settings?.kepalaSekolah || 'NAMA KEPALA SEKOLAH');
+    const nipKepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nip : (settings?.nipKepalaSekolah || '-');
+    const bendahara = typeof settings?.bendahara === 'object' ? settings.bendahara.nama : (settings?.bendahara || 'NAMA BENDAHARA');
+    const nipBendahara = typeof settings?.bendahara === 'object' ? settings.bendahara.nip : (settings?.nipBendahara || '-');
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Standing Instruction');
+
+    // Ensure gridlines are visible in Excel
+    worksheet.views = [{ showGridLines: true }];
+
+    // Column widths
+    worksheet.getColumn(1).width = 6;   // A: No
+    worksheet.getColumn(2).width = 30;  // B: Nama Penerima
+    worksheet.getColumn(3).width = 24;  // C: No. Rekening Penerima
+    worksheet.getColumn(4).width = 10;  // D: Bank
+    worksheet.getColumn(5).width = 8;   // E: PPh
+    worksheet.getColumn(6).width = 8;   // F: PPN
+    worksheet.getColumn(7).width = 22;  // G: Nominal Netto (Rp)
+    worksheet.getColumn(8).width = 45;  // H: Uraian Belanja / Keterangan
+    worksheet.getColumn(9).width = 20;  // I: Nama Vendor
+
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } },
+    };
+
+    const headerFill: ExcelJS.Fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE5E7EB' }, // Light gray background
+    };
+
+    // 1. Title Row (A1:I1)
+    worksheet.mergeCells('A1:I1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'SURAT STANDING INSTRUCTION (PERMOHONAN PEMINDAHBUKUAN)';
+    titleCell.font = { name: 'Arial', size: 13, bold: true };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getRow(1).height = 28;
+
+    // 2. Blank Row 2
+    worksheet.getRow(2).height = 10;
+
+    // 3. Metadata (Rows 3 to 7)
+    const metadata = [
+      ['NAMA SEKOLAH', ':', namaSekolah],
+      ['NOMOR SURAT', ':', noSurat],
+      ['TANGGAL SURAT', ':', tglSuratFormatted],
+      ['PERIHAL', ':', perihal],
+      ['SUMBER DANA', ':', sumberDana],
+    ];
+
+    metadata.forEach((item, idx) => {
+      const r = 3 + idx;
+      const row = worksheet.getRow(r);
+      row.height = 20;
+
+      const cA = worksheet.getCell(`A${r}`);
+      cA.value = item[0];
+      cA.font = { name: 'Arial', size: 10, bold: true };
+      cA.alignment = { horizontal: 'left', vertical: 'middle' };
+
+      const cB = worksheet.getCell(`B${r}`);
+      cB.value = item[1];
+      cB.font = { name: 'Arial', size: 10, bold: true };
+      cB.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      const cC = worksheet.getCell(`C${r}`);
+      cC.value = item[2];
+      cC.font = { name: 'Arial', size: 10 };
+      cC.alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+
+    // 4. Blank Row 8
+    worksheet.getRow(8).height = 12;
+
+    // 5. Table Header (Row 9)
+    const headers = [
+      'No',
+      'Nama Penerima',
+      'No. Rekening Penerima',
+      'Bank',
+      'PPh',
+      'PPN',
+      'Nominal Netto (Rp)',
+      'Uraian Belanja / Keterangan',
+      'Nama Vendor',
+    ];
+
+    const headerRow = worksheet.getRow(9);
+    headerRow.height = 28;
+
+    headers.forEach((h, colIdx) => {
+      const cell = headerRow.getCell(colIdx + 1);
+      cell.value = h;
+      cell.font = { name: 'Arial', size: 10, bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.fill = headerFill;
+      cell.border = thinBorder;
+    });
+
+    // 6. Data Rows (starting row 10)
+    let currentRow = 10;
+
+    filteredItemsForDoc.forEach((item, index) => {
+      const row = worksheet.getRow(currentRow);
+      row.height = 24;
+
+      const noRekStr = String(item.noRekPenerima || '-').trim();
+      const vendorStr = item.vendor && item.vendor.trim() !== '' && item.vendor !== '-' ? item.vendor.trim() : 'NON SIPLAH';
+      const ketStr = item.keterangan || item.deskripsiFull || config.tujuanPenggunaan || '-';
+
+      const rowValues = [
+        index + 1,
+        (item.namaPenerima || '-').toUpperCase(),
+        noRekStr,
+        (item.namaBank || 'BJB').toUpperCase(),
+        item.pph || '-',
+        item.ppn || '-',
+        Number(item.netto) || 0,
+        ketStr,
+        vendorStr,
+      ];
+
+      rowValues.forEach((val, colIdx) => {
+        const cell = row.getCell(colIdx + 1);
+        cell.value = val;
+        cell.font = { name: 'Arial', size: 10 };
+        cell.border = thinBorder;
+
+        if (colIdx === 0) { // No
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (colIdx === 1) { // Nama Penerima
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        } else if (colIdx === 2) { // No Rekening
+          cell.numFmt = '@';
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (colIdx === 3 || colIdx === 4 || colIdx === 5) { // Bank, PPh, PPN
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (colIdx === 6) { // Netto
+          cell.numFmt = '#,##0';
+          cell.font = { name: 'Arial', size: 10, bold: true };
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        } else if (colIdx === 7) { // Keterangan
+          cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        } else if (colIdx === 8) { // Vendor
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+      });
+
+      currentRow++;
+    });
+
+    // 7. Total Row
+    const totalRow = worksheet.getRow(currentRow);
+    totalRow.height = 26;
+
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+    const cTotalLabel = totalRow.getCell(1);
+    cTotalLabel.value = 'TOTAL';
+    cTotalLabel.font = { name: 'Arial', size: 10, bold: true };
+    cTotalLabel.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const cTotalNetto = totalRow.getCell(7);
+    cTotalNetto.value = totalNetto;
+    cTotalNetto.numFmt = '#,##0';
+    cTotalNetto.font = { name: 'Arial', size: 10, bold: true };
+    cTotalNetto.alignment = { horizontal: 'right', vertical: 'middle' };
+
+    // Apply borders and fill for total row across A to I
+    for (let col = 1; col <= 9; col++) {
+      const cell = totalRow.getCell(col);
+      cell.fill = headerFill;
+      cell.border = thinBorder;
+    }
+
+    currentRow++;
+
+    // 8. Signatures Block
+    currentRow += 2; // Leave blank rows
+
+    const sigRow1 = worksheet.getRow(currentRow);
+    sigRow1.height = 20;
+
+    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+    const sigLabel1 = sigRow1.getCell(1);
+    sigLabel1.value = 'Mengetahui,';
+    sigLabel1.font = { name: 'Arial', size: 10 };
+    sigLabel1.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
+    const sigLabel2 = sigRow1.getCell(7);
+    sigLabel2.value = 'Disetujui Oleh,';
+    sigLabel2.font = { name: 'Arial', size: 10 };
+    sigLabel2.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    currentRow++;
+    const sigRow2 = worksheet.getRow(currentRow);
+    sigRow2.height = 20;
+
+    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+    const sigRole1 = sigRow2.getCell(1);
+    sigRole1.value = 'Kepala Sekolah';
+    sigRole1.font = { name: 'Arial', size: 10 };
+    sigRole1.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
+    const sigRole2 = sigRow2.getCell(7);
+    sigRole2.value = 'Bendahara Sekolah';
+    sigRole2.font = { name: 'Arial', size: 10 };
+    sigRole2.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    currentRow += 4; // Signature space
+
+    const sigRow3 = worksheet.getRow(currentRow);
+    sigRow3.height = 20;
+
+    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+    const sigName1 = sigRow3.getCell(1);
+    sigName1.value = `(${kepsek})`;
+    sigName1.font = { name: 'Arial', size: 10, bold: true, underline: true };
+    sigName1.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
+    const sigName2 = sigRow3.getCell(7);
+    sigName2.value = `(${bendahara})`;
+    sigName2.font = { name: 'Arial', size: 10, bold: true, underline: true };
+    sigName2.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    currentRow++;
+    const sigRow4 = worksheet.getRow(currentRow);
+    sigRow4.height = 20;
+
+    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+    const sigNip1 = sigRow4.getCell(1);
+    sigNip1.value = `NIP. ${nipKepsek}`;
+    sigNip1.font = { name: 'Arial', size: 10 };
+    sigNip1.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    worksheet.mergeCells(`G${currentRow}:I${currentRow}`);
+    const sigNip2 = sigRow4.getCell(7);
+    sigNip2.value = `NIP. ${nipBendahara}`;
+    sigNip2.font = { name: 'Arial', size: 10 };
+    sigNip2.alignment = { horizontal: 'left', vertical: 'middle' };
+
+    // Write to buffer and download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    const cleanNoSurat = noSurat.replace(/[/\\?%*:|"<>]/g, '_');
+    anchor.download = `Standing_Instruction_${cleanNoSurat}.xlsx`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className="bg-slate-100 dark:bg-slate-950 rounded-3xl w-full max-w-7xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -240,6 +519,16 @@ export function StandingInstructionModal({
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              id="btn-export-excel-si"
+              onClick={handleExportExcel}
+              className="inline-flex items-center px-4 py-2.5 text-xs font-semibold rounded-xl transition-colors border cursor-pointer bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 dark:hover:bg-emerald-900/80"
+              title="Export Surat Standing Instruction ke Excel (.xlsx)"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1.5 text-emerald-600 dark:text-emerald-400" />
+              Export Excel (.xlsx)
+            </button>
+
             <button
               id="btn-print-si"
               onClick={handlePrint}
