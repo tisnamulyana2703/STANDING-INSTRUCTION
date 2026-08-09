@@ -469,95 +469,108 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap justify-end">
+            {/* 1. PRIMARY ACTION: TAMBAH TRANSAKSI */}
             <button
               onClick={handleAddNewTransaction}
-              className="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-98 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
               title="Tambah Transaksi BOSP Baru"
             >
               <Plus className="w-4 h-4" />
               <span>Tambah Transaksi</span>
             </button>
 
-            <button
-              onClick={() => setIsImportExportModalOpen(true)}
-              className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer"
-              title="Kelola Database Transaksi BOSP & Integrasi Google Spreadsheet"
-            >
-              <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span className="hidden sm:inline">Database Spreadsheet</span>
-            </button>
+            {/* 2. DOKUMEN & DATABASE GROUP */}
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/80 gap-1 shrink-0">
+              <button
+                onClick={() => handleOpenNonSiplahProof()}
+                className="px-2.5 py-1.5 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Cetak & Kelola Berkas Bukti Fisik Transaksi Non-SIPLAH"
+              >
+                <FileText className="w-3.5 h-3.5 text-slate-950" />
+                <span>Bukti Fisik Non-SIPLAH</span>
+              </button>
 
-            <button
-              onClick={() => setIsActivationModalOpen(true)}
-              className={`px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border ${
-                isActivated
-                  ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black border-amber-400 shadow-sm'
-              }`}
-              title="Status Aktivasi & Serial Number Application"
-            >
-              <KeyRound className="w-4 h-4" />
-              <span className="hidden sm:inline">{isActivated ? 'Lisensi Aktif' : 'Aktivasi Lisensi'}</span>
-            </button>
+              <button
+                onClick={() => setIsImportExportModalOpen(true)}
+                className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Kelola Database Transaksi BOSP & Integrasi Google Spreadsheet"
+              >
+                <Database className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span className="hidden sm:inline">Database Spreadsheet</span>
+              </button>
+            </div>
 
-            <button
-              onClick={() => setIsHonorSettingsModalOpen(true)}
-              className="px-3 py-2 text-xs font-bold text-amber-900 dark:text-amber-200 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 rounded-xl transition-colors border border-amber-300 dark:border-amber-800 flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Pengaturan Master Data Honorarium Guru & Tendik"
-            >
-              <UserCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span className="hidden sm:inline">Master Honor</span>
-            </button>
+            {/* 3. HONORARIUM GROUP */}
+            <div className="flex items-center p-1 bg-amber-500/10 dark:bg-amber-950/30 rounded-xl border border-amber-300/60 dark:border-amber-800/60 gap-1 shrink-0">
+              <button
+                onClick={() => setIsBatchHonorModalOpen(true)}
+                className="px-2.5 py-1.5 text-xs font-bold text-amber-950 dark:text-amber-100 bg-amber-400 hover:bg-amber-300 dark:bg-amber-600 dark:hover:bg-amber-500 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Input Massal Honor Guru & Staff Sekaligus"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-slate-950 dark:text-white" />
+                <span>Input Massal Honor</span>
+              </button>
 
-            <button
-              onClick={() => setIsBatchHonorModalOpen(true)}
-              className="px-3 py-2 text-xs font-black text-slate-950 bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
-              title="Input Massal Honor Guru & Staff Sekaligus"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden md:inline">Input Massal Honor</span>
-            </button>
+              <button
+                onClick={() => setIsHonorSettingsModalOpen(true)}
+                className="px-2.5 py-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200 hover:bg-amber-200/60 dark:hover:bg-amber-900/60 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Pengaturan Master Data Honorarium Guru & Tendik"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="hidden sm:inline">Master Honor</span>
+              </button>
+            </div>
 
-            <button
-              onClick={() => handleOpenNonSiplahProof()}
-              className="px-3 py-2 text-xs font-extrabold text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer border border-amber-500/40"
-              title="Cetak & Kelola Berkas Bukti Fisik Transaksi Non-SIPLAH"
-            >
-              <FileText className="w-4 h-4 text-slate-950" />
-              <span className="hidden sm:inline">Bukti Fisik Non-SIPLAH</span>
-            </button>
+            {/* 4. MASTER VENDOR & SETTINGS GROUP */}
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/80 gap-0.5 shrink-0">
+              <button
+                onClick={() => {
+                  setSettingsInitialTab('vendors');
+                  setIsSettingsModalOpen(true);
+                }}
+                className="px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Kelola Master Vendor / Toko"
+              >
+                <Store className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span className="hidden lg:inline">Kelola Vendor</span>
+              </button>
 
-            <button
-              onClick={() => {
-                setSettingsInitialTab('vendors');
-                setIsSettingsModalOpen(true);
-              }}
-              className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"
-              title="Kelola Master Vendor"
-            >
-              <Store className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span className="hidden sm:inline">Kelola Vendor</span>
-            </button>
+              <button
+                onClick={() => {
+                  setSettingsInitialTab('school');
+                  setIsSettingsModalOpen(true);
+                }}
+                className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+                title="Pengaturan Kop Surat & TTD Sekolah"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
 
-            <button
-              onClick={() => {
-                setSettingsInitialTab('school');
-                setIsSettingsModalOpen(true);
-              }}
-              className="p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-              title="Pengaturan Kop Surat & TTD"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
+            {/* 5. SYSTEM: LISENSI & TEMA */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => setIsActivationModalOpen(true)}
+                className={`px-2.5 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  isActivated
+                    ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black border-amber-400 shadow-2xs'
+                }`}
+                title="Status Aktivasi & Serial Number Aplikasi"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{isActivated ? 'Lisensi' : 'Aktivasi'}</span>
+              </button>
 
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-              title="Ganti Tema Mode Gelap/Terang"
-            >
-              {darkMode ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-indigo-600" />}
-            </button>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700/80 cursor-pointer"
+                title="Ganti Tema Mode Gelap/Terang"
+              >
+                {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+              </button>
+            </div>
           </div>
         </div>
       </header>
