@@ -575,9 +575,9 @@ export function AddEditTransactionModal({
               </div>
             </div>
 
-            {/* ROW 3: REKENING, BANK, NETTO */}
+            {/* ROW 3: REKENING & BANK */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div className="sm:col-span-1">
+              <div className="sm:col-span-2">
                 <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1">
                     <CreditCard className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
@@ -623,13 +623,17 @@ export function AddEditTransactionModal({
                   type="text"
                   value={formData.namaBank || ''}
                   onChange={(e) => setFormData({ ...formData, namaBank: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                   placeholder="BJB / BRI / Mandiri"
                 />
               </div>
+            </div>
 
+            {/* ROW 3.5: FINANCIAL & TAX (NETTO, PPH, PPN) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 bg-slate-100/70 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+              {/* NOMINAL NETTO */}
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
                   Nominal Netto (Rp)
                 </label>
                 <input
@@ -637,9 +641,71 @@ export function AddEditTransactionModal({
                   value={formData.netto || ''}
                   onChange={(e) => setFormData({ ...formData, netto: Number(e.target.value) })}
                   className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="2500000"
+                  placeholder="1500000"
                   required
                 />
+              </div>
+
+              {/* PPH */}
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Potongan PPh</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.pph || ''}
+                  onChange={(e) => setFormData({ ...formData, pph: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                  placeholder="-"
+                />
+                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                  {['-', '1.5%', '2%', '5%', '21'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, pph: preset }))}
+                      className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
+                        formData.pph === preset
+                          ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* PPN */}
+              <div>
+                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Potongan PPN</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.ppn || ''}
+                  onChange={(e) => setFormData({ ...formData, ppn: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                  placeholder="-"
+                />
+                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                  {['-', '11%', '12%'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, ppn: preset }))}
+                      className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
+                        formData.ppn === preset
+                          ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
