@@ -22,7 +22,8 @@ import {
   X,
   Copy,
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  ClipboardList
 } from 'lucide-react';
 
 interface TransactionTableProps {
@@ -42,6 +43,7 @@ interface TransactionTableProps {
   onOpenImportExport: () => void;
   onOpenSettings: () => void;
   onOpenNonSiplahProof?: (tx?: Transaction) => void;
+  onOpenPlanningDoc?: (tx?: Transaction) => void;
 }
 
 export function TransactionTable({
@@ -61,6 +63,7 @@ export function TransactionTable({
   onOpenImportExport,
   onOpenSettings,
   onOpenNonSiplahProof,
+  onOpenPlanningDoc,
 }: TransactionTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [yearFilter, setYearFilter] = useState('ALL');
@@ -1050,6 +1053,16 @@ export function TransactionTable({
                       </td>
                       <td className="px-2.5 py-2.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center space-x-1">
+                          {onOpenPlanningDoc && !checkIsMasuk(tx) && (
+                            <button
+                              onClick={() => onOpenPlanningDoc(tx)}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-lg transition-colors cursor-pointer"
+                              title="Cetak / Lihat Dokumen Perencanaan"
+                            >
+                              <ClipboardList className="w-3.5 h-3.5 text-indigo-500" />
+                            </button>
+                          )}
+
                           <button
                             onClick={() => onEdit(tx)}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"

@@ -13,12 +13,13 @@ import { HonorManagementModal } from './components/HonorManagementModal';
 import { BatchHonorModal } from './components/BatchHonorModal';
 import { ImportExportModal } from './components/ImportExportModal';
 import { NonSiplahProofModal } from './components/NonSiplahProofModal';
+import { PlanningDocModal } from './components/PlanningDocModal';
 import { ActivationModal } from './components/ActivationModal';
 import { DemoLimitModal } from './components/DemoLimitModal';
 import { getStoredLicenseInfo, verifySerialNumber, getMachineId } from './utils/licenseUtils';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
-import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck, FileSpreadsheet, Database, Plus, FileText } from 'lucide-react';
+import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck, FileSpreadsheet, Database, Plus, FileText, ClipboardList } from 'lucide-react';
 import { sanitizeSchoolSettingsForSync, ensureTransactionIds } from './utils/googleAppsScript';
 
 const MAX_DEMO_TRANSACTIONS = 3;
@@ -120,6 +121,8 @@ export default function App() {
   const [isSiModalOpen, setIsSiModalOpen] = useState(false);
   const [isNonSiplahModalOpen, setIsNonSiplahModalOpen] = useState(false);
   const [nonSiplahTargetTx, setNonSiplahTargetTx] = useState<Transaction[]>([]);
+  const [isPlanningDocModalOpen, setIsPlanningDocModalOpen] = useState(false);
+  const [planningDocTargetTx, setPlanningDocTargetTx] = useState<Transaction[]>([]);
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -281,6 +284,22 @@ export default function App() {
       setNonSiplahTargetTx(nonSiplahList.length > 0 ? nonSiplahList : transactions);
     }
     setIsNonSiplahModalOpen(true);
+  };
+
+  const handleOpenPlanningDoc = (targetTx?: Transaction) => {
+    if (targetTx) {
+      setPlanningDocTargetTx([targetTx]);
+    } else if (selectedIds.length > 0) {
+      const selectedList = transactions.filter(
+        (t) => selectedIds.includes(String(t.id)) || selectedIds.includes(String(t.no))
+      );
+      const outgoingSelected = selectedList.filter((t) => !t.tipeTransaksi || t.tipeTransaksi === 'KELUAR');
+      setPlanningDocTargetTx(outgoingSelected.length > 0 ? outgoingSelected : selectedList);
+    } else {
+      const outgoing = transactions.filter((t) => !t.tipeTransaksi || t.tipeTransaksi === 'KELUAR');
+      setPlanningDocTargetTx(outgoing.length > 0 ? outgoing : transactions);
+    }
+    setIsPlanningDocModalOpen(true);
   };
 
   const handleAddNewTransaction = () => {
@@ -483,6 +502,15 @@ export default function App() {
             {/* 2. DOKUMEN & DATABASE GROUP */}
             <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/80 gap-1 shrink-0">
               <button
+                onClick={() => handleOpenPlanningDoc()}
+                className="px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs border border-slate-200 dark:border-slate-600"
+                title="Cetak & Kelola Dokumen Perencanaan Pengadaan Barang/Jasa BOSP"
+              >
+                <ClipboardList className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Dokumen Perencanaan</span>
+              </button>
+
+              <button
                 onClick={() => handleOpenNonSiplahProof()}
                 className="px-2.5 py-1.5 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 title="Cetak & Kelola Berkas Bukti Fisik Transaksi Non-SIPLAH"
@@ -649,6 +677,7 @@ export default function App() {
           onOpenImportExport={() => setIsImportExportModalOpen(true)}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
           onOpenNonSiplahProof={handleOpenNonSiplahProof}
+          onOpenPlanningDoc={handleOpenPlanningDoc}
         />
       </main>
 
@@ -794,6 +823,16 @@ export default function App() {
         isOpen={isNonSiplahModalOpen}
         onClose={() => setIsNonSiplahModalOpen(false)}
         transactions={nonSiplahTargetTx}
+        settings={schoolSettings}
+        vendors={vendors}
+        onSaveTransaction={handleSaveTransaction}
+      />
+
+      {/* 11. PLANNING DOCUMENTS (DOKUMEN PERENCANAAN) MODAL */}
+      <PlanningDocModal
+        isOpen={isPlanningDocModalOpen}
+        onClose={() => setIsPlanningDocModalOpen(false)}
+        transactions={planningDocTargetTx}
         settings={schoolSettings}
         vendors={vendors}
         onSaveTransaction={handleSaveTransaction}
