@@ -1,8 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { RincianBelanjaItem } from '../types';
 
-// Set worker source for PDF.js to CDN to ensure browser worker executes without local asset bundling issues
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// Set worker source for PDF.js using bundled worker URL
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 export interface ExtractedPdfResult {
   success: boolean;
