@@ -46,6 +46,7 @@ interface RincianBelanjaModalProps {
   honorRecipients?: HonorRecipient[];
   existingTransactions?: Transaction[];
   onAddBatchTransactions?: (newTxs: Transaction[]) => void;
+  onDeleteTransaction?: (id: string | number, skipConfirm?: boolean) => void;
 }
 
 export function RincianBelanjaModal({
@@ -60,12 +61,14 @@ export function RincianBelanjaModal({
   categories = [],
   honorRecipients = [],
   existingTransactions = [],
-  onAddBatchTransactions
+  onAddBatchTransactions,
+  onDeleteTransaction
 }: RincianBelanjaModalProps) {
   const [activeTab, setActiveTab] = useState<'table' | 'paper'>('table');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProgram, setFilterProgram] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'UNREALIZED' | 'REALIZED'>('ALL');
+  const [filterBulan, setFilterBulan] = useState('ALL');
 
   // PDF Upload & Parser State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -116,9 +119,20 @@ export function RincianBelanjaModal({
       if (filterStatus === 'REALIZED') matchStatus = !!item.isRealized;
       if (filterStatus === 'UNREALIZED') matchStatus = !item.isRealized;
 
-      return matchSearch && matchProg && matchStatus;
+      let matchBulan = true;
+      if (filterBulan !== 'ALL') {
+        const itemBulan = (item.bulan || '').trim().toLowerCase();
+        const targetBulan = filterBulan.trim().toLowerCase();
+        if (item.isHeader) {
+          matchBulan = !itemBulan || itemBulan.includes(targetBulan);
+        } else {
+          matchBulan = itemBulan.includes(targetBulan);
+        }
+      }
+
+      return matchSearch && matchProg && matchStatus && matchBulan;
     });
-  }, [rincianList, searchTerm, filterProgram, filterStatus]);
+  }, [rincianList, searchTerm, filterProgram, filterStatus, filterBulan]);
 
   // Non-header selectable items (only unrealized items can be selected)
   const selectableItems = useMemo(() => {
@@ -136,13 +150,17 @@ export function RincianBelanjaModal({
 
   // Total expenditure sum
   const calculatedTotalBelanja = useMemo(() => {
-    const detailSum = rincianList
+    const listToSum = (filterBulan !== 'ALL' || filterProgram !== 'ALL' || filterStatus !== 'ALL' || searchTerm !== '')
+      ? filteredList
+      : rincianList;
+
+    const detailSum = listToSum
       .filter(i => !i.isHeader && i.jumlah > 0)
       .reduce((acc, curr) => acc + curr.jumlah, 0);
     
     if (detailSum > 0) return detailSum;
-    return rincianList.reduce((acc, curr) => acc + curr.jumlah, 0);
-  }, [rincianList]);
+    return listToSum.reduce((acc, curr) => acc + curr.jumlah, 0);
+  }, [rincianList, filteredList, filterBulan, filterProgram, filterStatus, searchTerm]);
 
   const totalRealizedAmount = useMemo(() => {
     return rincianList
@@ -426,6 +444,52 @@ export function RincianBelanjaModal({
     setTimeout(() => setSyncStatusMsg(''), 6000);
   };
 
+  // Cancel Realization for an item and automatically delete the associated transaction
+  const handleCancelRealization = (itemToCancel: RincianBelanjaItem) => {
+    if (!itemToCancel.isRealized) return;
+
+    if (!confirm(`Apakah Anda yakin ingin membatalkan status realisasi untuk item "${itemToCancel.uraian}"?\n\nItem ini akan dikembalikan ke status "Belum Realisasi" dan transaksi terkait akan otomatis terhapus dari Tabel Transaksi.`)) {
+      return;
+    }
+
+    const txIdToDelete = itemToCancel.realizedTxId;
+
+    // 1. Delete associated transaction if ID is found, or search by description fallback
+    if (txIdToDelete && onDeleteTransaction) {
+      onDeleteTransaction(txIdToDelete, true);
+    } else if (onDeleteTransaction && itemToCancel.uraian) {
+      const matchTx = (existingTransactions || []).find(t => 
+        t.keterangan === itemToCancel.uraian || 
+        (t.deskripsiFull && t.deskripsiFull.includes(itemToCancel.uraian))
+      );
+      if (matchTx) {
+        onDeleteTransaction(matchTx.id, true);
+      }
+    }
+
+    // 2. Unmark realization in rincianList for all items linked to this transaction
+    const updatedRincianList = rincianList.map(item => {
+      const isSameTx = txIdToDelete && item.realizedTxId === txIdToDelete;
+      const isSameItem = item.id === itemToCancel.id;
+      if (isSameTx || isSameItem) {
+        return {
+          ...item,
+          isRealized: false,
+          realizedVendor: undefined,
+          realizedJenis: undefined,
+          realizedDate: undefined,
+          realizedTxId: undefined
+        };
+      }
+      return item;
+    });
+
+    onSaveList(updatedRincianList);
+
+    setSyncStatusMsg(`🔄 Realisasi dibatalkan untuk "${itemToCancel.uraian}". Status dikembalikan ke "Belum" & transaksi terkait telah terhapus.`);
+    setTimeout(() => setSyncStatusMsg(''), 5000);
+  };
+
   const handleResetDefault = () => {
     if (confirm('Kembalikan data rincian belanja ke hasil ekstraksi PDF standar 2026 (79 Item)?')) {
       onSaveList(DEFAULT_RINCIAN_BELANJA);
@@ -635,7 +699,7 @@ export function RincianBelanjaModal({
           <div className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-center">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300">
               <span>NPSN: <strong>20207938</strong></span>
-              <span>Bulan: <strong>{bulan}</strong></span>
+              <span>Bulan: <strong className="text-amber-600 dark:text-amber-400">{filterBulan === 'ALL' ? bulan : `${filterBulan} 2026`}</strong></span>
             </div>
             <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5 font-semibold">
               {settings?.namaSekolah || 'SD NEGERI CIBURIAL'}
@@ -699,11 +763,35 @@ export function RincianBelanjaModal({
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Cari uraian, kode rekening..."
+                  placeholder="Cari uraian, kode..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 w-44 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+
+              {/* FILTER BULAN */}
+              <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-300 dark:border-amber-700/80 rounded-xl px-2.5 py-1">
+                <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <select
+                  value={filterBulan}
+                  onChange={(e) => setFilterBulan(e.target.value)}
+                  className="bg-transparent text-xs font-extrabold text-amber-900 dark:text-amber-200 cursor-pointer focus:outline-none"
+                >
+                  <option value="ALL">Semua Bulan (1 Tahun)</option>
+                  <option value="Januari">Bulan: Januari</option>
+                  <option value="Februari">Bulan: Februari</option>
+                  <option value="Maret">Bulan: Maret</option>
+                  <option value="April">Bulan: April</option>
+                  <option value="Mei">Bulan: Mei</option>
+                  <option value="Juni">Bulan: Juni</option>
+                  <option value="Juli">Bulan: Juli</option>
+                  <option value="Agustus">Bulan: Agustus</option>
+                  <option value="September">Bulan: September</option>
+                  <option value="Oktober">Bulan: Oktober</option>
+                  <option value="November">Bulan: November</option>
+                  <option value="Desember">Bulan: Desember</option>
+                </select>
               </div>
 
               <select
@@ -852,11 +940,18 @@ export function RincianBelanjaModal({
                           <td className="px-3 py-2 text-center">
                             {!isHeader && (
                               item.isRealized ? (
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold italic">
-                                  Sudah Realisasi
-                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelRealization(item)}
+                                  className="px-2.5 py-1 text-[11px] font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/80 hover:bg-rose-100 dark:hover:bg-rose-900/90 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer border border-rose-200 dark:border-rose-800 shadow-2xs w-full"
+                                  title="Batalkan realisasi item ini dan otomatis hapus transaksi terkait dari Tabel Transaksi"
+                                >
+                                  <RotateCcw className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                                  <span>Batalkan</span>
+                                </button>
                               ) : (
                                 <button
+                                  type="button"
                                   onClick={() => handleOpenRealizeSingle(item)}
                                   className="px-2.5 py-1 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/60 hover:bg-indigo-100 dark:hover:bg-indigo-800 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer border border-indigo-200 dark:border-indigo-700 shadow-2xs w-full"
                                   title="Realisasikan item ini langsung ke Transaksi Keluar"
@@ -933,7 +1028,7 @@ export function RincianBelanjaModal({
                       <div className="grid grid-cols-[100px_10px_1fr]">
                         <span className="font-semibold">Bulan</span>
                         <span>:</span>
-                        <span className="font-bold">{bulan}</span>
+                        <span className="font-bold">{filterBulan === 'ALL' ? bulan : `${filterBulan} 2026`}</span>
                       </div>
                       <div className="grid grid-cols-[100px_10px_1fr]">
                         <span className="font-semibold">Sumber Dana</span>
@@ -989,7 +1084,7 @@ export function RincianBelanjaModal({
                         </tr>
                       </thead>
                       <tbody>
-                        {rincianList.map((item) => {
+                        {filteredList.map((item) => {
                           const isHeader = item.isHeader || (!item.kodeRekening && item.jumlah > 0);
                           return (
                             <tr 

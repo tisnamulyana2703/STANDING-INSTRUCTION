@@ -416,14 +416,14 @@ export default function App() {
     syncToGoogleSheets(renumbered, schoolSettings, vendors);
   };
 
-  const handleDeleteTransaction = (id: string | number) => {
+  const handleDeleteTransaction = (id: string | number, skipConfirm = false) => {
     const strId = String(id || '').trim();
     if (!strId) {
       alert('Gagal menghapus: ID transaksi tidak valid.');
       return;
     }
 
-    if (confirm('Apakah Anda yakin ingin menghapus data transaksi ini?')) {
+    if (skipConfirm || confirm('Apakah Anda yakin ingin menghapus data transaksi ini?')) {
       const safePrev = ensureTransactionIds(transactions);
 
       // Find deleted target transaction
@@ -974,6 +974,7 @@ export default function App() {
         honorRecipients={honorRecipients}
         existingTransactions={transactions}
         onAddBatchTransactions={handleSaveBatchTransactions}
+        onDeleteTransaction={handleDeleteTransaction}
       />
     </div>
   );
