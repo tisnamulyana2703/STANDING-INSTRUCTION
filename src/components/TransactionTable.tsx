@@ -23,8 +23,11 @@ import {
   Copy,
   AlertTriangle,
   CreditCard,
-  ClipboardList
+  ClipboardList,
+  ListOrdered
 } from 'lucide-react';
+
+import { Receipt } from 'lucide-react';
 
 interface TransactionTableProps {
   transactions: Transaction[];
@@ -44,6 +47,8 @@ interface TransactionTableProps {
   onOpenSettings: () => void;
   onOpenNonSiplahProof?: (tx?: Transaction) => void;
   onOpenPlanningDoc?: (tx?: Transaction) => void;
+  onOpenRincian?: () => void;
+  onRenumberTransactions?: () => void;
 }
 
 export function TransactionTable({
@@ -64,6 +69,7 @@ export function TransactionTable({
   onOpenSettings,
   onOpenNonSiplahProof,
   onOpenPlanningDoc,
+  onRenumberTransactions,
 }: TransactionTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [yearFilter, setYearFilter] = useState('ALL');
@@ -219,6 +225,11 @@ export function TransactionTable({
       return !noRek || noRek === '-';
     }).length;
   }, [filteredTransactions]);
+
+  // Check if any transaction has invalid/timestamp number (> 100000)
+  const hasInvalidOrTimestampNumbers = useMemo(() => {
+    return transactions.some((t) => !t.no || isNaN(Number(t.no)) || Number(t.no) > 100000);
+  }, [transactions]);
 
   // Total pages & pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
@@ -830,6 +841,18 @@ export function TransactionTable({
               Print Hasil Filter ({filteredTransactions.length})
             </button>
 
+            {onRenumberTransactions && (
+              <button
+                type="button"
+                onClick={onRenumberTransactions}
+                className="inline-flex items-center px-2.5 py-1 text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/80 dark:hover:bg-amber-900 rounded-lg transition-colors border border-amber-300 dark:border-amber-800 cursor-pointer"
+                title="Urutkan dan Rapikan Nomor Transaksi dari 1 s/d N secara kronologis"
+              >
+                <ListOrdered className="w-3.5 h-3.5 mr-1 text-amber-600 dark:text-amber-400" />
+                Urutkan Nomor (1...N)
+              </button>
+            )}
+
             {(searchTerm || noSuratSearch || yearFilter !== 'ALL' || monthFilter !== 'ALL' || jenisFilter !== 'ALL' || kategoriFilter !== 'ALL' || noSuratFilter !== 'ALL' || tipeFilter !== 'ALL') && (
               <button
                 id="btn-reset-filters"
@@ -843,6 +866,34 @@ export function TransactionTable({
           </div>
         </div>
       </div>
+
+      {/* WARNING BANNER FOR INVALID / TIMESTAMP TRANSACTION NUMBERS */}
+      {hasInvalidOrTimestampNumbers && (
+        <div className="bg-amber-500/10 border-2 border-amber-400 dark:border-amber-700/80 p-4 rounded-3xl flex flex-wrap items-center justify-between gap-3 shadow-md animate-in fade-in">
+          <div className="flex items-center gap-3 text-xs text-amber-900 dark:text-amber-200">
+            <div className="p-2.5 bg-amber-500 text-white rounded-2xl font-bold shrink-0 shadow-sm">
+              <ListOrdered className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-sm text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                ⚠️ TERDETEKSI NOMOR TRANSAKSI TIDAK BERURUTAN / TIMESTAMP
+              </h4>
+              <p className="text-amber-800 dark:text-amber-300 font-medium mt-0.5">
+                Sistem menemukan nomor transaksi sangat besar (seperti <code className="font-mono bg-amber-200/80 dark:bg-amber-900/80 px-1 py-0.5 rounded text-amber-950 dark:text-amber-100">1786472055155</code>). Klik tombol di samping untuk merapikan seluruh nomor transaksi dari 1 s/d N secara otomatis.
+              </p>
+            </div>
+          </div>
+          {onRenumberTransactions && (
+            <button
+              onClick={onRenumberTransactions}
+              className="px-4 py-2 text-xs font-extrabold text-white bg-amber-600 hover:bg-amber-700 active:scale-98 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <ListOrdered className="w-4 h-4" />
+              <span>Perbaiki & Urutkan Ulang Nomor Sekarang</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Selected Items Bulk Action Bar */}
       {selectedIds.length > 0 && (

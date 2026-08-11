@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Transaction, SchoolSettings, Vendor, HonorRecipient } from './types';
+import { Transaction, SchoolSettings, Vendor, HonorRecipient, RincianBelanjaItem } from './types';
 import { INITIAL_TRANSACTIONS } from './data/initialTransactions';
 import { DEFAULT_SCHOOL_SETTINGS } from './data/defaultSettings';
 import { DEFAULT_VENDORS } from './data/defaultVendors';
 import { DEFAULT_HONOR_RECIPIENTS } from './data/defaultHonorRecipients';
+import { DEFAULT_RINCIAN_BELANJA } from './data/rincianBelanjaData';
 import { TransactionTable } from './components/TransactionTable';
 import { StandingInstructionModal } from './components/StandingInstructionModal';
 import { AddEditTransactionModal } from './components/AddEditTransactionModal';
@@ -14,13 +15,14 @@ import { BatchHonorModal } from './components/BatchHonorModal';
 import { ImportExportModal } from './components/ImportExportModal';
 import { NonSiplahProofModal } from './components/NonSiplahProofModal';
 import { PlanningDocModal } from './components/PlanningDocModal';
+import { RincianBelanjaModal } from './components/RincianBelanjaModal';
 import { ActivationModal } from './components/ActivationModal';
 import { DemoLimitModal } from './components/DemoLimitModal';
 import { getStoredLicenseInfo, verifySerialNumber, getMachineId } from './utils/licenseUtils';
 import { DashboardStats } from './components/DashboardStats';
 import { LogoBandungBarat, LogoTutWuri } from './components/Logos';
-import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck, FileSpreadsheet, Database, Plus, FileText, ClipboardList } from 'lucide-react';
-import { sanitizeSchoolSettingsForSync, ensureTransactionIds } from './utils/googleAppsScript';
+import { Sun, Moon, Settings, Store, Cloud, KeyRound, ShieldCheck, Sparkles, UserCheck, FileSpreadsheet, Database, Plus, FileText, ClipboardList, Receipt } from 'lucide-react';
+import { sanitizeSchoolSettingsForSync, ensureTransactionIds, getNextTransactionNo, renumberTransactionsSequentially } from './utils/googleAppsScript';
 
 const MAX_DEMO_TRANSACTIONS = 3;
 
@@ -106,6 +108,21 @@ export default function App() {
     return DEFAULT_HONOR_RECIPIENTS;
   });
 
+  const [rincianList, setRincianList] = useState<RincianBelanjaItem[]>(() => {
+    const saved = localStorage.getItem('bosp_rincian_belanja_db');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse rincian belanja:', e);
+      }
+    }
+    return DEFAULT_RINCIAN_BELANJA;
+  });
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // License Activation State
@@ -123,6 +140,7 @@ export default function App() {
   const [nonSiplahTargetTx, setNonSiplahTargetTx] = useState<Transaction[]>([]);
   const [isPlanningDocModalOpen, setIsPlanningDocModalOpen] = useState(false);
   const [planningDocTargetTx, setPlanningDocTargetTx] = useState<Transaction[]>([]);
+  const [isRincianModalOpen, setIsRincianModalOpen] = useState(false);
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -137,6 +155,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('bosp_transactions_db', JSON.stringify(transactions));
   }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('bosp_rincian_belanja_db', JSON.stringify(rincianList));
+  }, [rincianList]);
 
   useEffect(() => {
     localStorage.setItem('bosp_school_settings', JSON.stringify(schoolSettings));
@@ -158,7 +180,8 @@ export default function App() {
   const syncToGoogleSheets = async (
     txList: Transaction[],
     settings: SchoolSettings,
-    vendorList: Vendor[]
+    vendorList: Vendor[],
+    customRincian?: RincianBelanjaItem[]
   ) => {
     const scriptUrl = localStorage.getItem('bosp_apps_script_url');
     if (!scriptUrl) return;
@@ -171,6 +194,7 @@ export default function App() {
           transactions: txList,
           schoolSettings: sanitizeSchoolSettingsForSync(settings),
           vendors: vendorList,
+          rincianBelanja: customRincian || rincianList,
         }),
       });
     } catch (e) {
@@ -209,6 +233,11 @@ export default function App() {
           // 3. Vendors
           if (Array.isArray(result.vendors) && result.vendors.length > 0) {
             setVendors(result.vendors);
+          }
+
+          // 4. Rincian Belanja
+          if (Array.isArray(result.rincianBelanja) && result.rincianBelanja.length > 0) {
+            setRincianList(result.rincianBelanja);
           }
         }
       })
@@ -332,10 +361,14 @@ export default function App() {
       return;
     }
 
+    const safeTxNo = Number(tx.no) && Number(tx.no) < 100000 
+      ? Number(tx.no) 
+      : (idx >= 0 && Number(safePrev[idx]?.no) < 100000 ? Number(safePrev[idx].no) : getNextTransactionNo(safePrev));
+
     const safeTx: Transaction = {
       ...tx,
-      id: targetId || (idx >= 0 && safePrev[idx]?.id ? String(safePrev[idx].id) : `tx-${tx.no || Date.now()}-${Math.random().toString(36).substring(2, 7)}`),
-      no: Number(tx.no) || (idx >= 0 ? safePrev[idx].no : safePrev.length + 1)
+      id: targetId || (idx >= 0 && safePrev[idx]?.id ? String(safePrev[idx].id) : `tx-${safeTxNo}-${Math.random().toString(36).substring(2, 7)}`),
+      no: safeTxNo
     };
 
     let updatedTxList: Transaction[] = [];
@@ -352,7 +385,17 @@ export default function App() {
 
   const handleSaveBatchTransactions = (newTxs: Transaction[]) => {
     const safePrev = ensureTransactionIds(transactions);
-    let updatedTxList = [...newTxs, ...safePrev];
+    let currentNextNo = getNextTransactionNo(safePrev);
+
+    const processedNewTxs = newTxs.map((tx) => {
+      const txNo = tx.no && Number(tx.no) < 100000 ? Number(tx.no) : currentNextNo++;
+      return {
+        ...tx,
+        no: txNo,
+      };
+    });
+
+    let updatedTxList = [...processedNewTxs, ...safePrev];
 
     if (!isActivated && updatedTxList.length > MAX_DEMO_TRANSACTIONS) {
       updatedTxList = updatedTxList.slice(0, MAX_DEMO_TRANSACTIONS);
@@ -366,6 +409,13 @@ export default function App() {
     syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
   };
 
+  const handleRenumberTransactions = () => {
+    const safePrev = ensureTransactionIds(transactions);
+    const renumbered = renumberTransactionsSequentially(safePrev);
+    setTransactions(renumbered);
+    syncToGoogleSheets(renumbered, schoolSettings, vendors);
+  };
+
   const handleDeleteTransaction = (id: string | number) => {
     const strId = String(id || '').trim();
     if (!strId) {
@@ -375,6 +425,10 @@ export default function App() {
 
     if (confirm('Apakah Anda yakin ingin menghapus data transaksi ini?')) {
       const safePrev = ensureTransactionIds(transactions);
+
+      // Find deleted target transaction
+      const targetTx = safePrev.find(t => String(t.id).trim() === strId || String(t.no).trim() === strId);
+      const deletedTxId = targetTx?.id ? String(targetTx.id).trim() : strId;
 
       // Filter out matching item by ID or No
       const updatedTxList = safePrev.filter((t) => {
@@ -388,6 +442,28 @@ export default function App() {
         return;
       }
 
+      // Revert realization status in rincianList for items linked to this transaction
+      setRincianList((prevRincian) => {
+        const updated = prevRincian.map((item) => {
+          if (
+            item.realizedTxId &&
+            (item.realizedTxId === deletedTxId || item.realizedTxId === strId)
+          ) {
+            return {
+              ...item,
+              isRealized: false,
+              realizedVendor: undefined,
+              realizedJenis: undefined,
+              realizedDate: undefined,
+              realizedTxId: undefined,
+            };
+          }
+          return item;
+        });
+        localStorage.setItem('bosp_rincian_belanja_db', JSON.stringify(updated));
+        return updated;
+      });
+
       setTransactions(updatedTxList);
       setSelectedIds((prev) => prev.filter((i) => String(i) !== strId));
       syncToGoogleSheets(updatedTxList, schoolSettings, vendors);
@@ -400,10 +476,40 @@ export default function App() {
       const safePrev = ensureTransactionIds(transactions);
       const strSelected = selectedIds.map((s) => String(s).trim());
 
+      const deletedTxs = safePrev.filter((t) => {
+        const idMatch = strSelected.includes(String(t.id).trim());
+        const noMatch = strSelected.includes(String(t.no).trim());
+        return idMatch || noMatch;
+      });
+
+      const deletedTxIds = deletedTxs.map((t) => String(t.id).trim());
+
       const updatedTxList = safePrev.filter((t) => {
         const idMatch = strSelected.includes(String(t.id).trim());
         const noMatch = strSelected.includes(String(t.no).trim());
         return !idMatch && !noMatch;
+      });
+
+      // Revert realization status in rincianList
+      setRincianList((prevRincian) => {
+        const updated = prevRincian.map((item) => {
+          if (
+            item.realizedTxId &&
+            (deletedTxIds.includes(item.realizedTxId) || strSelected.includes(item.realizedTxId))
+          ) {
+            return {
+              ...item,
+              isRealized: false,
+              realizedVendor: undefined,
+              realizedJenis: undefined,
+              realizedDate: undefined,
+              realizedTxId: undefined,
+            };
+          }
+          return item;
+        });
+        localStorage.setItem('bosp_rincian_belanja_db', JSON.stringify(updated));
+        return updated;
       });
 
       setTransactions(updatedTxList);
@@ -501,6 +607,15 @@ export default function App() {
 
             {/* 2. DOKUMEN & DATABASE GROUP */}
             <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/80 gap-1 shrink-0">
+              <button
+                onClick={() => setIsRincianModalOpen(true)}
+                className="px-2.5 py-1.5 text-xs font-extrabold text-indigo-950 dark:text-indigo-100 bg-indigo-100 dark:bg-indigo-900/80 hover:bg-indigo-200 dark:hover:bg-indigo-800 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs border border-indigo-200 dark:border-indigo-700"
+                title="Panel Rincian Kertas Kerja Perbulan / Rincian Belanja (Hasil Ekstraksi PDF)"
+              >
+                <Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Rincian Belanja</span>
+              </button>
+
               <button
                 onClick={() => handleOpenPlanningDoc()}
                 className="px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs border border-slate-200 dark:border-slate-600"
@@ -663,7 +778,7 @@ export default function App() {
               setIsDemoLimitModalOpen(true);
               return;
             }
-            const nextNumber = transactions.length > 0 ? Math.max(...transactions.map((t) => t.no || 0)) + 1 : 1;
+            const nextNumber = getNextTransactionNo(transactions);
             const duplicateTx: Transaction = {
               ...tx,
               id: '', // Strip ID so it creates a new entry
@@ -674,10 +789,12 @@ export default function App() {
           }}
           onDelete={handleDeleteTransaction}
           onBulkDelete={handleBulkDeleteTransactions}
+          onRenumberTransactions={handleRenumberTransactions}
           onOpenImportExport={() => setIsImportExportModalOpen(true)}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
           onOpenNonSiplahProof={handleOpenNonSiplahProof}
           onOpenPlanningDoc={handleOpenPlanningDoc}
+          onOpenRincian={() => setIsRincianModalOpen(true)}
         />
       </main>
 
@@ -704,7 +821,7 @@ export default function App() {
         onClose={() => setIsAddEditModalOpen(false)}
         onSave={handleSaveTransaction}
         initialData={editingTx}
-        nextNo={transactions.length > 0 ? Math.max(...transactions.map((t) => t.no || 0)) + 1 : 1}
+        nextNo={getNextTransactionNo(transactions)}
         vendors={vendors}
         categories={categories}
         honorRecipients={honorRecipients}
@@ -813,7 +930,7 @@ export default function App() {
         onClose={() => setIsBatchHonorModalOpen(false)}
         honorRecipients={honorRecipients}
         schoolSettings={schoolSettings}
-        nextNo={transactions.length > 0 ? Math.max(...transactions.map((t) => t.no || 0)) + 1 : 1}
+        nextNo={getNextTransactionNo(transactions)}
         onSaveBatchTransactions={handleSaveBatchTransactions}
         onOpenHonorSettings={() => setIsHonorSettingsModalOpen(true)}
       />
@@ -836,6 +953,27 @@ export default function App() {
         settings={schoolSettings}
         vendors={vendors}
         onSaveTransaction={handleSaveTransaction}
+      />
+
+      {/* 12. RINCIAN BELANJA (KERTAS KERJA PERBULAN) MODAL */}
+      <RincianBelanjaModal
+        isOpen={isRincianModalOpen}
+        onClose={() => setIsRincianModalOpen(false)}
+        rincianList={rincianList}
+        onSaveList={(newList) => {
+          setRincianList(newList);
+          syncToGoogleSheets(transactions, schoolSettings, vendors, newList);
+        }}
+        settings={schoolSettings}
+        scriptUrl={localStorage.getItem('bosp_apps_script_url') || ''}
+        onSyncToGoogleSheets={async (customRincian) => {
+          await syncToGoogleSheets(transactions, schoolSettings, vendors, customRincian || rincianList);
+        }}
+        vendors={vendors}
+        categories={categories}
+        honorRecipients={honorRecipients}
+        existingTransactions={transactions}
+        onAddBatchTransactions={handleSaveBatchTransactions}
       />
     </div>
   );

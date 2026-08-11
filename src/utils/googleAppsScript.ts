@@ -42,7 +42,15 @@ function setupDatabase() {
   var headersVendor = ["ID", "NAMA_VENDOR", "ALAMAT", "NO_HP", "NPWP"];
   setSheetHeader(sheetVendor, headersVendor);
   
-  SpreadsheetApp.getUi().alert("✅ Database BOSP Berhasil Disiapkan!\nSheet 'DATABASE_TRANSAKSI', 'INFORMASI_SEKOLAH', & 'DATABASE_VENDOR' siap digunakan.");
+  // 4. RINCIAN_BELANJA
+  var sheetRincian = getOrCreateSheet(ss, "RINCIAN_BELANJA");
+  var headersRincian = [
+    "NO_URUT", "KODE_REKENING", "KODE_PROGRAM", "URAIAN",
+    "VOLUME", "SATUAN", "TARIF_HARGA", "JUMLAH", "IS_HEADER", "BULAN", "TAHUN"
+  ];
+  setSheetHeader(sheetRincian, headersRincian);
+
+  SpreadsheetApp.getUi().alert("✅ Database BOSP Berhasil Disiapkan!\nSheet 'DATABASE_TRANSAKSI', 'INFORMASI_SEKOLAH', 'DATABASE_VENDOR', & 'RINCIAN_BELANJA' siap digunakan.");
   return "Setup Berhasil";
 }
 
@@ -171,14 +179,41 @@ function doGet(e) {
       }
     }
 
+    // --- 4. RINCIAN BELANJA ---
+    var sheetRincian = ss.getSheetByName("RINCIAN_BELANJA");
+    var rincianBelanja = [];
+    if (sheetRincian) {
+      var valuesRincian = sheetRincian.getDataRange().getDisplayValues();
+      for (var r = 1; r < valuesRincian.length; r++) {
+        var rRow = valuesRincian[r];
+        if (!rRow[0] && !rRow[3]) continue;
+        rincianBelanja.push({
+          id: "rb-" + (r),
+          noUrut: parseInt(cleanStr(rRow[0]), 10) || r,
+          kodeRekening: cleanStr(rRow[1]),
+          kodeProgram: cleanStr(rRow[2]),
+          uraian: cleanStr(rRow[3]),
+          volume: cleanStr(rRow[4]),
+          satuan: cleanStr(rRow[5]),
+          tarifHarga: Number(cleanStr(rRow[6]).replace(/[^0-9]/g, "")) || 0,
+          jumlah: Number(cleanStr(rRow[7]).replace(/[^0-9]/g, "")) || 0,
+          isHeader: cleanStr(rRow[8]).toLowerCase() === "true" || cleanStr(rRow[8]) === "1",
+          bulan: cleanStr(rRow[9]) || "Agustus",
+          tahun: cleanStr(rRow[10]) || "2026"
+        });
+      }
+    }
+
     return responseJSON({
       status: "success",
       count: transactions.length,
       data: transactions,
       transactions: transactions,
       schoolSettings: schoolSettings,
-      vendors: vendors
+      vendors: vendors,
+      rincianBelanja: rincianBelanja
     });
+
   } catch (err) {
     return responseJSON({ status: "error", message: err.toString() });
   }
@@ -317,6 +352,46 @@ function doPost(e) {
       }
     }
 
+    // --- 4. SAVE RINCIAN BELANJA ---
+    if (action === "sync_all" || action === "save_all" || action === "save_rincian_belanja") {
+      try {
+        if (postData.rincianBelanja && Array.isArray(postData.rincianBelanja)) {
+          var sheetRincian = getOrCreateSheet(ss, "RINCIAN_BELANJA");
+          var headersRincian = [
+            "NO_URUT", "KODE_REKENING", "KODE_PROGRAM", "URAIAN",
+            "VOLUME", "SATUAN", "TARIF_HARGA", "JUMLAH", "IS_HEADER", "BULAN", "TAHUN"
+          ];
+          sheetRincian.clearContents();
+          setSheetHeader(sheetRincian, headersRincian);
+
+          if (postData.rincianBelanja.length > 0) {
+            var rowsRincian = postData.rincianBelanja.map(function(rb, idx) {
+              return [
+                rb.noUrut || (idx + 1),
+                toTextCell(rb.kodeRekening),
+                toTextCell(rb.kodeProgram),
+                safeVal(rb.uraian),
+                safeVal(rb.volume),
+                safeVal(rb.satuan),
+                rb.tarifHarga || 0,
+                rb.jumlah || 0,
+                rb.isHeader ? "true" : "false",
+                safeVal(rb.bulan || "Agustus"),
+                toTextCell(rb.tahun || "2026")
+              ];
+            });
+            var rangeRincian = sheetRincian.getRange(2, 1, rowsRincian.length, headersRincian.length);
+            rangeRincian.setNumberFormat("@");
+            rangeRincian.setValues(rowsRincian);
+          }
+          logs.push("RINCIAN_BELANJA (" + postData.rincianBelanja.length + " rincian)");
+        }
+      } catch (errRincian) {
+        logs.push("ERROR RINCIAN_BELANJA: " + errRincian.toString());
+      }
+    }
+
+
     return responseJSON({
       status: "success",
       message: "Berhasil menyinkronkan seluruh data: " + logs.join(", "),
@@ -392,14 +467,82 @@ export function sanitizeSchoolSettingsForSync(settings: any) {
 
 export function ensureTransactionIds(list: any[]): any[] {
   if (!Array.isArray(list)) return [];
+
+  // Determine if any item has invalid or timestamp numbers (> 100000)
+  const hasInvalidNo = list.some((t) => {
+    const n = Number(t?.no);
+    return !t?.no || isNaN(n) || n <= 0 || n > 100000;
+  });
+
+  if (!hasInvalidNo) {
+    return list.map((t, idx) => {
+      const rawNo = typeof t?.no === 'number' ? t.no : (parseInt(String(t?.no || ''), 10) || (idx + 1));
+      const existingId = t && t.id !== undefined && t.id !== null ? String(t.id).trim() : '';
+      return {
+        ...t,
+        id: existingId || `tx-${rawNo}-${idx + 1}`,
+        no: rawNo,
+      };
+    });
+  }
+
+  // Find max valid number (< 100000)
+  const validNumbers = list
+    .map((t) => Number(t?.no))
+    .filter((n) => !isNaN(n) && n > 0 && n < 100000);
+
+  let currentNo = validNumbers.length > 0 ? Math.max(...validNumbers) : 0;
+
   return list.map((t, idx) => {
-    const rawNo = typeof t?.no === 'number' ? t.no : (parseInt(String(t?.no || ''), 10) || (idx + 1));
+    const num = Number(t?.no);
+    const isValid = !isNaN(num) && num > 0 && num < 100000;
+    const cleanNo = isValid ? num : ++currentNo;
     const existingId = t && t.id !== undefined && t.id !== null ? String(t.id).trim() : '';
     return {
       ...t,
-      id: existingId || `tx-${rawNo}-${idx + 1}`,
-      no: rawNo,
+      id: existingId || `tx-${cleanNo}-${idx + 1}`,
+      no: cleanNo,
     };
   });
 }
+
+export function getNextTransactionNo(list: any[]): number {
+  if (!Array.isArray(list) || list.length === 0) return 1;
+  const validNumbers = list
+    .map((t) => Number(t?.no))
+    .filter((n) => !isNaN(n) && n > 0 && n < 100000);
+  if (validNumbers.length === 0) return 1;
+  return Math.max(...validNumbers) + 1;
+}
+
+export function renumberTransactionsSequentially(list: any[]): any[] {
+  if (!Array.isArray(list) || list.length === 0) return [];
+
+  const parseDate = (dmy: string): number => {
+    if (!dmy) return 0;
+    const parts = String(dmy).split('/');
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)).getTime();
+    }
+    return new Date(dmy).getTime() || 0;
+  };
+
+  const sorted = [...list].sort((a, b) => {
+    const timeA = parseDate(a.tanggal);
+    const timeB = parseDate(b.tanggal);
+    if (timeA !== timeB) return timeA - timeB;
+    const rawNoA = Number(a.no) || 0;
+    const rawNoB = Number(b.no) || 0;
+    if (rawNoA < 100000 && rawNoB < 100000) {
+      return rawNoA - rawNoB;
+    }
+    return 0;
+  });
+
+  return sorted.map((t, idx) => ({
+    ...t,
+    no: idx + 1,
+  }));
+}
+
 

@@ -69,13 +69,13 @@ export function generateNonSiplahNoPo(
   return `trx/${random4}/${roman}/${year}`;
 }
 
-const JENIS_TRANSAKSI_OPTIONS = [
+export const JENIS_TRANSAKSI_OPTIONS = [
   'Pembayaran Honor',
   'Pembelanjaan Siplah',
   'Pembayaran Workshop',
   'Pendaftaran Lomba',
   'Pembayaran Transport',
-  'BOSP SALUR',
+  'NON SIPLAH',
   'Transfer Tunai',
   'Tarik Tunai',
 ];
@@ -334,10 +334,10 @@ export function AddEditTransactionModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-5xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-6">
         
         {/* HEADER */}
-        <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-4.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="bg-slate-50 dark:bg-slate-800/60 px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
               isDuplicate
@@ -352,7 +352,7 @@ export function AddEditTransactionModal({
                   ? 'Edit Data Transaksi'
                   : isDuplicate
                   ? 'Duplikat Transaksi (Data Baru)'
-                  : 'Tambah Transaksi Baru'}
+                  : 'Tambah Transaksi Baru (Form Landscape)'}
                 {isDuplicate && (
                   <span className="text-[10px] bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold border border-amber-200 dark:border-amber-800">
                     Salin Tanggal & No. Surat
@@ -368,7 +368,7 @@ export function AddEditTransactionModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -399,7 +399,7 @@ export function AddEditTransactionModal({
                   siplah: prev.siplah === 'BOS SALUR' ? 'Non Siplah' : prev.siplah,
                 }));
               }}
-              className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 py-2 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 formData.tipeTransaksi !== 'MASUK'
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -424,7 +424,7 @@ export function AddEditTransactionModal({
                   keterangan: prev.keterangan || 'Penyaluran Dana BOSP Salur Tahap',
                 }));
               }}
-              className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 py-2 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 formData.tipeTransaksi === 'MASUK'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -435,295 +435,317 @@ export function AddEditTransactionModal({
             </button>
           </div>
 
-          <div className="bg-slate-50/60 dark:bg-slate-800/30 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          {/* LANDSCAPE 2-COLUMN CONTAINER */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
             
-            {/* PRESET HONOR QUICK AUTOFILL */}
-            {honorRecipients.length > 0 && formData.tipeTransaksi !== 'MASUK' && (
-              <div className="bg-amber-500/10 border border-amber-300 dark:border-amber-700/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
-                <div className="flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <span className="font-bold text-slate-800 dark:text-amber-200 text-xs">
-                    ⚡ Isi Otomatis dari Master Honor:
-                  </span>
+            {/* COLUMN 1 (SISI KIRI: DATA TRANSAKSI & NOMINAL KEUANGAN) */}
+            <div className="bg-slate-50/70 dark:bg-slate-800/40 p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3.5">
+              <h4 className="font-extrabold text-xs uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 pb-2 border-b border-slate-200 dark:border-slate-700">
+                <CreditCard className="w-4 h-4 text-indigo-500" />
+                <span>Rincian Surat &amp; Rekening Penerima</span>
+              </h4>
+
+              {/* ROW 1: NO URUT (AUTOMATIC), TANGGAL, NO SURAT SI */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>No. Urut</span>
+                    <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full font-bold">
+                      Otomatis
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.no}
+                    readOnly
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-mono font-bold cursor-not-allowed"
+                  />
                 </div>
-                <div className="flex items-center gap-2 flex-1 min-w-[220px] justify-end">
+
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Tanggal Transaksi
+                  </label>
+                  <input
+                    type="date"
+                    value={dateIso}
+                    onChange={handleDateChange}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono cursor-pointer"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    No. Surat SI
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.noSurat || ''}
+                    onChange={(e) => setFormData({ ...formData, noSurat: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="900.3.5.5/001-SDN-CBL/I/2026"
+                  />
+                </div>
+              </div>
+
+              {/* ROW 2: JENIS TRANSAKSI & NAMA PENERIMA */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Jenis Transaksi
+                  </label>
+                  <select
+                    value={formData.jenisTransaksi || 'Pembayaran Honor'}
+                    onChange={(e) => setFormData({ ...formData, jenisTransaksi: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium cursor-pointer"
+                  >
+                    {JENIS_TRANSAKSI_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                    {formData.jenisTransaksi && !JENIS_TRANSAKSI_OPTIONS.includes(formData.jenisTransaksi) && (
+                      <option value={formData.jenisTransaksi}>{formData.jenisTransaksi}</option>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Nama Penerima
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.namaPenerima || ''}
+                    onChange={(e) => setFormData({ ...formData, namaPenerima: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
+                    placeholder="Nama Guru / Pegawai / Vendor"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* ROW 3: REKENING & BANK */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <CreditCard className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                      No. Rekening Penerima
+                    </span>
+                    {(!formData.noRekPenerima || formData.noRekPenerima.trim() === '' || formData.noRekPenerima.trim() === '-') ? (
+                      <span className="text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-1.5 py-0.5 rounded-md font-bold flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                        Kosong (Diperlukan saat cetak SI)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded-md font-bold">
+                        ✓ Terisi
+                      </span>
+                    )}
+                  </label>
+                  <div className={`rounded-xl p-0.5 transition-all ${
+                    (!formData.noRekPenerima || formData.noRekPenerima.trim() === '' || formData.noRekPenerima.trim() === '-')
+                      ? 'border-2 border-amber-300 dark:border-amber-700 bg-amber-500/5 dark:bg-amber-950/20'
+                      : 'border-2 border-amber-400 dark:border-amber-600 bg-amber-500/10 dark:bg-amber-950/40'
+                  }`}>
+                    <input
+                      type="text"
+                      value={formData.noRekPenerima || ''}
+                      onChange={(e) => setFormData({ ...formData, noRekPenerima: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border-0 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-black focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
+                      placeholder="0122211231101 (Boleh dikosongkan)"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Bank Penerima
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.namaBank || ''}
+                    onChange={(e) => setFormData({ ...formData, namaBank: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                    placeholder="BJB / BRI / Mandiri"
+                  />
+                </div>
+              </div>
+
+              {/* ROW 4: FINANCIAL & TAX (NETTO, PPH, PPN) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-100/70 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                <div>
+                  <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
+                    Nominal Netto (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.netto || ''}
+                    onChange={(e) => setFormData({ ...formData, netto: Number(e.target.value) })}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                    placeholder="1500000"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>PPh</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.pph || ''}
+                    onChange={(e) => setFormData({ ...formData, pph: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                    placeholder="-"
+                  />
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    {['-', '1.5%', '2%', '5%', '21'].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, pph: preset }))}
+                        className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
+                          formData.pph === preset
+                            ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                    <span>PPN</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.ppn || ''}
+                    onChange={(e) => setFormData({ ...formData, ppn: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                    placeholder="-"
+                  />
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    {['-', '11%', '12%'].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, ppn: preset }))}
+                        className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
+                          formData.ppn === preset
+                            ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* COLUMN 2 (SISI KANAN: URAIAN, MASTER HONOR LIST, KATEGORI & VENDOR) */}
+            <div className="bg-slate-50/70 dark:bg-slate-800/40 p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3.5">
+              <h4 className="font-extrabold text-xs uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5 pb-2 border-b border-slate-200 dark:border-slate-700">
+                <Store className="w-4 h-4 text-amber-500" />
+                <span>Uraian Belanja, Master Honor &amp; Vendor</span>
+              </h4>
+
+              {/* MASTER HONOR SELECTION & SUGGESTIONS */}
+              {(formData.jenisTransaksi || '').toLowerCase().includes('honor') && honorRecipients.length > 0 && (
+                <div className="bg-amber-500/10 border border-amber-300 dark:border-amber-700/80 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-amber-900 dark:text-amber-200 text-xs flex items-center gap-1">
+                      <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                      List Nama Master Honorarium:
+                    </span>
+                    {onOpenHonorSettings && (
+                      <button
+                        type="button"
+                        onClick={onOpenHonorSettings}
+                        className="text-[10px] text-amber-800 dark:text-amber-300 font-bold underline hover:text-amber-900"
+                      >
+                        ⚙️ Kelola Honor
+                      </button>
+                    )}
+                  </div>
                   <select
                     onChange={(e) => {
                       const selectedId = e.target.value;
                       if (!selectedId) return;
                       const found = honorRecipients.find((r) => r.id === selectedId);
                       if (found) {
-                        const ket = found.keteranganDefault?.trim()
+                        const defaultKet = found.keteranganDefault?.trim()
                           ? `${found.keteranganDefault.trim()} Bulan ${formData.bulan || 'Januari'} ${formData.tahun || new Date().getFullYear()}`
-                          : `Pembayaran Honorarium ${found.namaPenerima}`;
+                          : `Pembayaran Honorarium ${found.namaPenerima} Bulan ${formData.bulan || 'Januari'} ${formData.tahun || new Date().getFullYear()}`;
+
                         setFormData((prev) => ({
                           ...prev,
-                          jenisTransaksi: 'Pembayaran Honor',
+                          keterangan: defaultKet,
                           namaPenerima: found.namaPenerima,
                           noRekPenerima: found.noRekPenerima || '-',
                           namaBank: found.namaBank || 'BJB',
-                          netto: found.netto || 0,
-                          pph: found.pph || '-',
-                          ppn: found.ppn || '-',
-                          keterangan: ket,
+                          netto: found.netto || prev.netto || 0,
+                          pph: found.pph || prev.pph || '-',
+                          ppn: found.ppn || prev.ppn || '-',
                           kategori: found.kategoriDefault || 'JASA KANTOR',
                         }));
                       }
                     }}
                     defaultValue=""
-                    className="w-full sm:w-auto px-2.5 py-1.5 text-xs font-semibold border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 max-w-xs cursor-pointer truncate"
+                    className="w-full px-2.5 py-1.5 text-xs font-bold border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
                   >
-                    <option value="">-- Pilih Guru / Staff / Penerima Honor --</option>
+                    <option value="">-- Pilih Nama dari List Master Honor --</option>
                     {honorRecipients.map((rec) => (
                       <option key={rec.id} value={rec.id}>
-                        {rec.namaPenerima} ({rec.jabatan || 'Honor'}) - Rp {(rec.netto || 0).toLocaleString('id-ID')}
+                        {rec.namaPenerima} ({rec.jabatan || 'Penerima Honor'}) - Rp {(rec.netto || 0).toLocaleString('id-ID')}
                       </option>
                     ))}
                   </select>
-                  {onOpenHonorSettings && (
-                    <button
-                      type="button"
-                      onClick={onOpenHonorSettings}
-                      className="px-2 py-1 text-[11px] text-amber-800 dark:text-amber-200 bg-amber-200/60 dark:bg-amber-900/60 hover:bg-amber-300/60 dark:hover:bg-amber-800/80 rounded-lg font-bold flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
-                      title="Kelola Master Data Honorarium"
-                    >
-                      ⚙️ Master Honor
-                    </button>
-                  )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ROW 1: NO URUT (AUTOMATIC), TANGGAL (PICKER), NO SURAT SI */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              {/* URAIAN BELANJA */}
               <div>
                 <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                  <span>No. Urut</span>
-                  <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-bold border border-indigo-200 dark:border-indigo-800">
-                    Otomatis
-                  </span>
-                </label>
-                <input
-                  type="number"
-                  value={formData.no}
-                  readOnly
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-mono font-bold cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Tanggal Transaksi
-                </label>
-                <input
-                  type="date"
-                  value={dateIso}
-                  onChange={handleDateChange}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono cursor-pointer"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  No. Surat SI
-                </label>
-                <input
-                  type="text"
-                  value={formData.noSurat || ''}
-                  onChange={(e) => setFormData({ ...formData, noSurat: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="900.3.5.5/001-SDN-CBL/I/2026"
-                />
-              </div>
-            </div>
-
-            {/* ROW 2: JENIS TRANSAKSI (DROPDOWN), NAMA PENERIMA */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Jenis Transaksi
-                </label>
-                <select
-                  value={formData.jenisTransaksi || 'Pembayaran Honor'}
-                  onChange={(e) => setFormData({ ...formData, jenisTransaksi: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium cursor-pointer"
-                >
-                  {JENIS_TRANSAKSI_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                  {formData.jenisTransaksi && !JENIS_TRANSAKSI_OPTIONS.includes(formData.jenisTransaksi) && (
-                    <option value={formData.jenisTransaksi}>{formData.jenisTransaksi}</option>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Nama Penerima
-                </label>
-                <input
-                  type="text"
-                  value={formData.namaPenerima || ''}
-                  onChange={(e) => setFormData({ ...formData, namaPenerima: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
-                  placeholder="Nama Guru / Pegawai / Penerima Dana"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* ROW 3: REKENING & BANK */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              <div className="sm:col-span-2">
-                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <CreditCard className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                    No. Rekening Penerima
-                  </span>
-                  {(!formData.noRekPenerima || formData.noRekPenerima.trim() === '' || formData.noRekPenerima.trim() === '-') ? (
-                    <span className="text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 px-1.5 py-0.5 rounded-md font-bold flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-                      Kosong (Diperlukan saat cetak SI)
-                    </span>
-                  ) : (
-                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded-md font-bold">
-                      ✓ Terisi
+                  <span>Uraian Belanja (Keterangan)</span>
+                  {(formData.jenisTransaksi || '').toLowerCase().includes('honor') && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                      💡 Menggunakan List Nama Master Honor
                     </span>
                   )}
                 </label>
-                <div className={`rounded-xl p-0.5 transition-all ${
-                  (!formData.noRekPenerima || formData.noRekPenerima.trim() === '' || formData.noRekPenerima.trim() === '-')
-                    ? 'border-2 border-amber-300 dark:border-amber-700 bg-amber-500/5 dark:bg-amber-950/20'
-                    : 'border-2 border-amber-400 dark:border-amber-600 bg-amber-500/10 dark:bg-amber-950/40'
-                }`}>
-                  <input
-                    type="text"
-                    value={formData.noRekPenerima || ''}
-                    onChange={(e) => setFormData({ ...formData, noRekPenerima: e.target.value })}
-                    className="w-full px-2.5 py-2 border-0 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-black focus:outline-none focus:ring-2 focus:ring-amber-500 text-xs"
-                    placeholder="0122211231101 (Boleh dikosongkan dulu)"
-                  />
-                </div>
-                {(!formData.noRekPenerima || formData.noRekPenerima.trim() === '' || formData.noRekPenerima.trim() === '-') ? (
-                  <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold mt-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3 shrink-0 text-amber-500" />
-                    Boleh dikosongkan sementara. Wajib diisi saat mencetak Surat Standing Instruction (SI).
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Nama Bank Penerima
-                </label>
                 <input
                   type="text"
-                  value={formData.namaBank || ''}
-                  onChange={(e) => setFormData({ ...formData, namaBank: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                  placeholder="BJB / BRI / Mandiri"
-                />
-              </div>
-            </div>
-
-            {/* ROW 3.5: FINANCIAL & TAX (NETTO, PPH, PPN) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 bg-slate-100/70 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-              {/* NOMINAL NETTO */}
-              <div>
-                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
-                  Nominal Netto (Rp)
-                </label>
-                <input
-                  type="number"
-                  value={formData.netto || ''}
-                  onChange={(e) => setFormData({ ...formData, netto: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="1500000"
-                  required
-                />
-              </div>
-
-              {/* PPH */}
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                  <span>Potongan PPh</span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.pph || ''}
-                  onChange={(e) => setFormData({ ...formData, pph: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
-                  placeholder="-"
-                />
-                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  {['-', '1.5%', '2%', '5%', '21'].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, pph: preset }))}
-                      className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
-                        formData.pph === preset
-                          ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
-                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* PPN */}
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                  <span>Potongan PPN</span>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.ppn || ''}
-                  onChange={(e) => setFormData({ ...formData, ppn: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
-                  placeholder="-"
-                />
-                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  {['-', '11%', '12%'].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, ppn: preset }))}
-                      className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
-                        formData.ppn === preset
-                          ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
-                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ROW 4: URAIAN BELANJA (KETERANGAN), KATEGORI */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Uraian Belanja
-                </label>
-                <input
-                  type="text"
+                  list="honor-recipients-datalist"
                   value={formData.keterangan || ''}
                   onChange={(e) => setFormData({ ...formData, keterangan: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Uraian rincian belanja BOSP..."
+                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-xs"
+                  placeholder={(formData.jenisTransaksi || '').toLowerCase().includes('honor') ? "Ketik nama penerima honor atau uraian..." : "Uraian rincian belanja BOSP..."}
                 />
+                
+                {/* DATALIST UNTUK SUGGESTION NAMA HONOR */}
+                <datalist id="honor-recipients-datalist">
+                  {honorRecipients.map((rec) => (
+                    <React.Fragment key={rec.id}>
+                      <option value={`Pembayaran Honorarium ${rec.namaPenerima} (${rec.jabatan || 'Honor'}) Bulan ${formData.bulan || 'Januari'} ${formData.tahun || new Date().getFullYear()}`} />
+                      <option value={`Pembayaran Honor ${rec.namaPenerima}`} />
+                      <option value={rec.namaPenerima} />
+                    </React.Fragment>
+                  ))}
+                </datalist>
               </div>
 
+              {/* KATEGORI BELANJA */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block font-medium text-slate-700 dark:text-slate-300">
@@ -755,131 +777,132 @@ export function AddEditTransactionModal({
                   )}
                 </select>
               </div>
-            </div>
 
-            {/* ROW 5: VENDOR DROPDOWN, NO PO, STATUS SIPLAH (ONLY THESE THREE FOR VENDOR) */}
-            <div className="border-t border-slate-200 dark:border-slate-700/60 pt-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Store className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
-                    Informasi Vendor & Siplah
-                  </h4>
+              {/* VENDOR & SIPLAH SECTION */}
+              <div className="border-t border-slate-200 dark:border-slate-700/60 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Store className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <h5 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
+                      Penyedia / Vendor &amp; Siplah
+                    </h5>
+                  </div>
+                  {onOpenVendorSettings && (
+                    <button
+                      type="button"
+                      onClick={onOpenVendorSettings}
+                      className="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-900"
+                    >
+                      <Settings className="w-3 h-3" />
+                      + Master Vendor
+                    </button>
+                  )}
                 </div>
-                {onOpenVendorSettings && (
-                  <button
-                    type="button"
-                    onClick={onOpenVendorSettings}
-                    className="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-lg border border-indigo-100 dark:border-indigo-900"
-                  >
-                    <Settings className="w-3 h-3" />
-                    + Kelola Master Vendor
-                  </button>
-                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* 1. VENDOR DROPDOWN */}
+                  <div>
+                    <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Pilih Vendor / Toko
+                    </label>
+                    <select
+                      value={formData.vendor || 'NON SIPLAH'}
+                      onChange={handleVendorSelect}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold cursor-pointer text-xs"
+                    >
+                      {vendors.map((v) => (
+                        <option key={v.id} value={v.nama}>
+                          {v.nama}
+                        </option>
+                      ))}
+                      {formData.vendor && !vendors.some((v) => v.nama === formData.vendor) && (
+                        <option value={formData.vendor}>{formData.vendor}</option>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* 2. NO PO */}
+                  <div>
+                    <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <span>No. PO</span>
+                      {formData.siplah === 'Non Siplah' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const freshNoPo = generateNonSiplahNoPo(formData.bulan, formData.tahun, dateIso);
+                            setFormData((prev) => ({ ...prev, noPo: freshNoPo }));
+                          }}
+                          className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                          title="Acak Ulang No. PO Non Siplah"
+                        >
+                          <span>🎲 Acak</span>
+                        </button>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.noPo || ''}
+                      onChange={(e) => setFormData({ ...formData, noPo: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                      placeholder={formData.siplah === 'Non Siplah' ? 'trx/xxxx/I/2026' : 'PO65AF1A4418431'}
+                    />
+                  </div>
+
+                  {/* 3. STATUS SIPLAH */}
+                  <div>
+                    <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Status Siplah
+                    </label>
+                    <select
+                      value={formData.siplah || 'Non Siplah'}
+                      onChange={(e) => {
+                        const newSiplah = e.target.value;
+                        setFormData((prev) => {
+                          let updatedNoPo = prev.noPo || '';
+                          if (newSiplah === 'Non Siplah') {
+                            if (!updatedNoPo || !updatedNoPo.startsWith('trx/')) {
+                              updatedNoPo = generateNonSiplahNoPo(prev.bulan, prev.tahun, dateIso);
+                            }
+                          } else if (newSiplah === 'Siplah') {
+                            if (updatedNoPo.startsWith('trx/')) {
+                              updatedNoPo = '';
+                            }
+                          }
+                          return {
+                            ...prev,
+                            siplah: newSiplah,
+                            noPo: updatedNoPo,
+                          };
+                        });
+                      }}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium text-xs"
+                    >
+                      <option value="Non Siplah">Non Siplah</option>
+                      <option value="Siplah">Siplah</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                {/* 1. VENDOR DROPDOWN */}
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Pilih Vendor / Toko
-                  </label>
-                  <select
-                    value={formData.vendor || 'NON SIPLAH'}
-                    onChange={handleVendorSelect}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold cursor-pointer"
-                  >
-                    {vendors.map((v) => (
-                      <option key={v.id} value={v.nama}>
-                        {v.nama}
-                      </option>
-                    ))}
-                    {/* Fallback if current tx has custom vendor not in list */}
-                    {formData.vendor && !vendors.some((v) => v.nama === formData.vendor) && (
-                      <option value={formData.vendor}>{formData.vendor}</option>
-                    )}
-                  </select>
-                </div>
-
-                {/* 2. NO PO */}
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span>No. PO {formData.siplah === 'Non Siplah' ? '(Non-Siplah)' : '(Siplah)'}</span>
-                    {formData.siplah === 'Non Siplah' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const freshNoPo = generateNonSiplahNoPo(formData.bulan, formData.tahun, dateIso);
-                          setFormData((prev) => ({ ...prev, noPo: freshNoPo }));
-                        }}
-                        className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                        title="Acak Ulang No. PO Non Siplah"
-                      >
-                        <span>🎲 Acak No. PO</span>
-                      </button>
-                    )}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.noPo || ''}
-                    onChange={(e) => setFormData({ ...formData, noPo: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder={formData.siplah === 'Non Siplah' ? 'trx/xxxx/I/2026' : 'PO65AF1A4418431'}
-                  />
-                </div>
-
-                {/* 3. STATUS SIPLAH */}
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Status Siplah
-                  </label>
-                  <select
-                    value={formData.siplah || 'Non Siplah'}
-                    onChange={(e) => {
-                      const newSiplah = e.target.value;
-                      setFormData((prev) => {
-                        let updatedNoPo = prev.noPo || '';
-                        if (newSiplah === 'Non Siplah') {
-                          if (!updatedNoPo || !updatedNoPo.startsWith('trx/')) {
-                            updatedNoPo = generateNonSiplahNoPo(prev.bulan, prev.tahun, dateIso);
-                          }
-                        } else if (newSiplah === 'Siplah') {
-                          if (updatedNoPo.startsWith('trx/')) {
-                            updatedNoPo = '';
-                          }
-                        }
-                        return {
-                          ...prev,
-                          siplah: newSiplah,
-                          noPo: updatedNoPo,
-                        };
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium"
-                  >
-                    <option value="Non Siplah">Non Siplah</option>
-                    <option value="Siplah">Siplah</option>
-                  </select>
-                </div>
-              </div>
             </div>
 
           </div>
 
+          {/* FOOTER ACTIONS */}
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="inline-flex items-center px-4 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors"
+              className="inline-flex items-center px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors cursor-pointer"
             >
               <Save className="w-4 h-4 mr-1.5" />
-              Simpan Data
+              Simpan Data Transaksi
             </button>
           </div>
         </form>

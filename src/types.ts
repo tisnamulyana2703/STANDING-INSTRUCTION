@@ -100,3 +100,23 @@ export interface PrintMarginConfig {
   marginRight: number;
   fontSizeScale: 'compact' | 'normal' | 'large';
 }
+
+export interface RincianBelanjaItem {
+  id: string;
+  noUrut: number;
+  kodeRekening: string;
+  kodeProgram: string;
+  uraian: string;
+  volume: string;
+  satuan: string;
+  tarifHarga: number;
+  jumlah: number;
+  isHeader?: boolean;
+  bulan?: string;
+  tahun?: string;
+  isRealized?: boolean;
+  realizedVendor?: string;
+  realizedJenis?: string;
+  realizedDate?: string;
+  realizedTxId?: string;
+}
