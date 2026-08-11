@@ -14,6 +14,7 @@ import {
   Search, 
   CloudUpload, 
   RotateCcw, 
+  Trash2,
   FileSpreadsheet,
   Eye,
   SlidersHorizontal,
@@ -490,12 +491,53 @@ export function RincianBelanjaModal({
     setTimeout(() => setSyncStatusMsg(''), 5000);
   };
 
-  const handleResetDefault = () => {
-    if (confirm('Kembalikan data rincian belanja ke hasil ekstraksi PDF standar 2026 (79 Item)?')) {
-      onSaveList(DEFAULT_RINCIAN_BELANJA);
+  const handleDeleteMonthRincian = () => {
+    let targetMonth = filterBulan !== 'ALL' 
+      ? filterBulan 
+      : (bulan ? bulan.split(' ')[0] : 'Agustus');
+
+    if (filterBulan === 'ALL') {
+      const inputBulan = prompt(
+        'Masukkan nama bulan yang rincian belanjanya ingin dihapus (contoh: Januari, Februari, Agustus, dll):',
+        targetMonth
+      );
+      if (!inputBulan || !inputBulan.trim()) return;
+      targetMonth = inputBulan.trim();
+    }
+
+    const targetBulanLower = targetMonth.toLowerCase();
+
+    // Find items belonging to targetMonth
+    const itemsToDelete = rincianList.filter(item => {
+      if (item.isHeader) return false;
+      const itemBulan = (item.bulan || '').trim().toLowerCase();
+      return itemBulan.includes(targetBulanLower);
+    });
+
+    if (itemsToDelete.length === 0) {
+      alert(`Tidak ditemukan data rincian belanja untuk bulan "${targetMonth}".`);
+      return;
+    }
+
+    if (confirm(`Apakah Anda yakin ingin MENGHAPUS SELURUH ${itemsToDelete.length} item rincian belanja untuk Bulan ${targetMonth}?\n\nPerhatian: Jika ada item yang sudah direalisasikan, transaksinya juga akan otomatis terhapus.`)) {
+      // Clean up realized transactions if any
+      itemsToDelete.forEach(item => {
+        if (item.isRealized && item.realizedTxId && onDeleteTransaction) {
+          onDeleteTransaction(item.realizedTxId, true);
+        }
+      });
+
+      // Filter out items belonging to targetMonth
+      const updatedList = rincianList.filter(item => {
+        if (item.isHeader) return true;
+        const itemBulan = (item.bulan || '').trim().toLowerCase();
+        return !itemBulan.includes(targetBulanLower);
+      });
+
+      onSaveList(updatedList);
       setSelectedIds([]);
-      setSyncStatusMsg('Data berhasil direset ke standar ekstraksi PDF!');
-      setTimeout(() => setSyncStatusMsg(''), 4000);
+      setSyncStatusMsg(`🗑️ Berhasil menghapus ${itemsToDelete.length} item rincian belanja bulan ${targetMonth}.`);
+      setTimeout(() => setSyncStatusMsg(''), 5000);
     }
   };
 
@@ -637,11 +679,14 @@ export function RincianBelanjaModal({
             </button>
 
             <button
-              onClick={handleResetDefault}
-              className="p-2 text-slate-400 hover:text-amber-300 hover:bg-slate-800 rounded-xl transition cursor-pointer"
-              title="Reset ke Data Ekstraksi PDF Asli (79 Item)"
+              onClick={handleDeleteMonthRincian}
+              className="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 text-rose-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-rose-800 shadow-sm"
+              title={filterBulan !== 'ALL' ? `Hapus Seluruh Rincian Belanja Bulan ${filterBulan}` : 'Hapus Rincian Belanja Bulan Tersebut'}
             >
-              <RotateCcw className="w-4 h-4" />
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              <span className="hidden sm:inline">
+                {filterBulan !== 'ALL' ? `Hapus Bulan ${filterBulan}` : 'Hapus Bulan Ini'}
+              </span>
             </button>
 
             <button
