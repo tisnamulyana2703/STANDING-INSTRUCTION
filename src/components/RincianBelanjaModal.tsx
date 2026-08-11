@@ -262,9 +262,21 @@ export function RincianBelanjaModal({
             })
           });
 
-          const data = await res.json();
+          let data: any = null;
+          const contentType = res.headers.get('content-type') || '';
 
-          if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+          if (res.ok && contentType.includes('application/json')) {
+            data = await res.json();
+          } else {
+            const rawErrorMsg = await res.text().catch(() => '');
+            console.warn('Backend endpoint returned non-JSON:', res.status, rawErrorMsg.slice(0, 100));
+            data = {
+              success: false,
+              error: 'Server tidak mengembalikan format JSON (Kemungkinan file PDF terlalu besar atau kunci API AI belum aktif)'
+            };
+          }
+
+          if (data && data.success && Array.isArray(data.items) && data.items.length > 0) {
             const formattedItems: RincianBelanjaItem[] = data.items.map((item: any, idx: number) => ({
               id: `rb-pdf-${Date.now()}-${idx}`,
               noUrut: idx + 1,
@@ -300,11 +312,12 @@ export function RincianBelanjaModal({
             onSaveList(newList);
             setSyncStatusMsg(`✅ Berhasil memuat ${formattedItems.length} item Rincian Belanja dari PDF!`);
           } else {
-            throw new Error(data.error || 'Respons ekstraksi tidak berisi data Rincian Belanja yang valid');
+            const errorReason = data?.error || 'Ekstraksi PDF tidak mengembalikan data Rincian Belanja.';
+            alert(`Info Ekstraksi PDF:\n\n${errorReason}\n\nSistem akan menggunakan data Rincian Belanja Standar 2026.`);
           }
         } catch (apiErr: any) {
-          console.warn('Backend Gemini API error, applying fallback:', apiErr);
-          alert(`Info Ekstraksi PDF: ${apiErr.message || 'Menggunakan data Rincian Standar'}`);
+          console.warn('Backend Gemini API error:', apiErr);
+          alert(`Info Ekstraksi PDF: Gagal memproses file PDF (${apiErr?.message || 'Error koneksi'}). Data tetap menggunakan rincian belanja saat ini.`);
         } finally {
           setIsUploadingPdf(false);
           setUploadProgressMsg('');
