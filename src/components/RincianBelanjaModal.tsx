@@ -5,7 +5,6 @@ import { exportToPdf } from '../utils/pdfGenerator';
 import { DEFAULT_RINCIAN_BELANJA } from '../data/rincianBelanjaData';
 import { DEFAULT_CATEGORIES } from './CategoryManagementModal';
 import { JENIS_TRANSAKSI_OPTIONS } from './AddEditTransactionModal';
-import { extractRincianBelanjaFromPdf } from '../utils/pdfParser';
 import { 
   X, 
   Printer, 
@@ -235,7 +234,7 @@ export function RincianBelanjaModal({
     setIsRealizeModalOpen(true);
   };
 
-  // PDF Upload Handler via Direct PDF Text Parser (Non-AI Client Side)
+  // PDF Upload Handler via Gemini AI Backend / Parser
   const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -246,42 +245,78 @@ export function RincianBelanjaModal({
     }
 
     setIsUploadingPdf(true);
-    setUploadProgressMsg(`Mengekstraksi teks Rincian Belanja dari file "${file.name}"...`);
+    setUploadProgressMsg(`Membaca file "${file.name}" & menganalisis Rincian Belanja dengan Gemini AI...`);
 
     try {
-      const result = await extractRincianBelanjaFromPdf(file);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64String = reader.result as string;
 
-      if (result.success && result.items.length > 0) {
-        const formattedItems = result.items;
+        try {
+          const res = await fetch('/api/parse-rincian-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pdfBase64: base64String,
+              fileName: file.name
+            })
+          });
 
-        const shouldReplace = confirm(
-          `Berhasil mengekstraksi ${formattedItems.length} item rincian belanja dari PDF!\n\n` +
-          `• Klik [OK] untuk MENGGANTIKAN data rincian belanja saat ini.\n` +
-          `• Klik [Batal] untuk MENAMBAHKAN item ke daftar yang sudah ada.`
-        );
+          const data = await res.json();
 
-        let newList: RincianBelanjaItem[] = [];
-        if (shouldReplace) {
-          newList = formattedItems;
-        } else {
-          newList = [
-            ...rincianList,
-            ...formattedItems.map((item, idx) => ({ ...item, noUrut: rincianList.length + idx + 1 }))
-          ];
+          if (data.success && Array.isArray(data.items) && data.items.length > 0) {
+            const formattedItems: RincianBelanjaItem[] = data.items.map((item: any, idx: number) => ({
+              id: `rb-pdf-${Date.now()}-${idx}`,
+              noUrut: idx + 1,
+              kodeRekening: item.kodeRekening || '',
+              kodeProgram: item.kodeProgram || '',
+              uraian: item.uraian || 'Tanpa Uraian',
+              volume: String(item.volume || ''),
+              satuan: item.satuan || '',
+              tarifHarga: Number(item.tarifHarga) || 0,
+              jumlah: Number(item.jumlah) || 0,
+              isHeader: !!item.isHeader,
+              bulan: item.bulan || 'Agustus',
+              tahun: item.tahun || '2026'
+            }));
+
+            // Ask option to replace or append
+            const shouldReplace = confirm(
+              `Gemini AI berhasil mengekstraksi ${formattedItems.length} item rincian belanja dari file PDF!\n\n` +
+              `• Klik [OK] untuk MENGGANTIKAN data rincian belanja saat ini.\n` +
+              `• Klik [Batal] untuk MENAMBAHKAN item ke daftar yang sudah ada.`
+            );
+
+            let newList: RincianBelanjaItem[] = [];
+            if (shouldReplace) {
+              newList = formattedItems;
+            } else {
+              newList = [
+                ...rincianList,
+                ...formattedItems.map((item, idx) => ({ ...item, noUrut: rincianList.length + idx + 1 }))
+              ];
+            }
+
+            onSaveList(newList);
+            setSyncStatusMsg(`✅ Berhasil memuat ${formattedItems.length} item Rincian Belanja dari PDF!`);
+          } else {
+            throw new Error(data.error || 'Respons ekstraksi tidak berisi data Rincian Belanja yang valid');
+          }
+        } catch (apiErr: any) {
+          console.warn('Backend Gemini API error, applying fallback:', apiErr);
+          alert(`Info Ekstraksi PDF: ${apiErr.message || 'Menggunakan data Rincian Standar'}`);
+        } finally {
+          setIsUploadingPdf(false);
+          setUploadProgressMsg('');
+          if (fileInputRef.current) fileInputRef.current.value = '';
         }
+      };
 
-        onSaveList(newList);
-        setSyncStatusMsg(`✅ Berhasil memuat ${formattedItems.length} item Rincian Belanja dari PDF!`);
-      } else {
-        alert(result.message || 'Gagal mengekstraksi data Rincian Belanja dari PDF.');
-      }
+      reader.readAsDataURL(file);
     } catch (err: any) {
-      console.error('Ekstraksi PDF error:', err);
-      alert('Gagal mengekstraksi data PDF: ' + (err.message || 'Format PDF tidak dapat diproses'));
-    } finally {
+      alert('Gagal membaca file PDF: ' + err.message);
       setIsUploadingPdf(false);
       setUploadProgressMsg('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
