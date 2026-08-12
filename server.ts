@@ -64,7 +64,7 @@ Kembalikan HANYA array JSON objek sesuai schema tanpa teks pembuka/penutup.
       let text = '';
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.6-flash',
           contents: [
             {
               inlineData: {
@@ -99,9 +99,9 @@ Kembalikan HANYA array JSON objek sesuai schema tanpa teks pembuka/penutup.
         });
         text = response.text || '[]';
       } catch (geminiErr: any) {
-        console.warn('Gemini 2.5 flash failed, fallback to gemini-2.0-flash:', geminiErr?.message);
+        console.warn('Gemini 3.6 flash failed, fallback to gemini-flash-latest:', geminiErr?.message);
         const fallbackResp = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-flash-latest',
           contents: [
             {
               inlineData: {
