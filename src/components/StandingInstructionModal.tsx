@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, SchoolSettings, StandingInstructionConfig } from '../types';
 import { StandingInstructionDoc } from './StandingInstructionDoc';
 import { formatTitimangsa } from '../utils/terbilang';
+import { calculateEffectiveNetto, formatTaxDisplay } from '../utils/taxCalculator';
 import { exportToPdf, printDocument } from '../utils/pdfGenerator';
 import { Download, Printer, X, Sliders, CheckCircle2, ArrowLeft, Loader2, Filter, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import ExcelJS from 'exceljs';
@@ -225,7 +226,7 @@ export function StandingInstructionModal({
     const tglSuratFormatted = formatTitimangsa ? formatTitimangsa(rawTglSurat) : rawTglSurat;
     const perihal = config.perihal || 'Permohonan Pemindah Bukuan';
     const sumberDana = config.sumberDana || 'BOSP REGULER 2026';
-    const totalNetto = filteredItemsForDoc.reduce((acc, curr) => acc + (Number(curr.netto) || 0), 0);
+    const totalNetto = filteredItemsForDoc.reduce((acc, curr) => acc + calculateEffectiveNetto(curr), 0);
 
     const kepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nama : (settings?.kepalaSekolah || 'NAMA KEPALA SEKOLAH');
     const nipKepsek = typeof settings?.kepalaSekolah === 'object' ? settings.kepalaSekolah.nip : '-';
@@ -341,15 +342,16 @@ export function StandingInstructionModal({
       const noRekStr = String(item.noRekPenerima || '-').trim();
       const vendorStr = item.vendor && item.vendor.trim() !== '' && item.vendor !== '-' ? item.vendor.trim() : 'NON SIPLAH';
       const ketStr = item.keterangan || item.deskripsiFull || config.tujuanPenggunaan || '-';
+      const rowNetto = calculateEffectiveNetto(item);
 
       const rowValues = [
         index + 1,
         (item.namaPenerima || '-').toUpperCase(),
         noRekStr,
         (item.namaBank || 'BJB').toUpperCase(),
-        item.pph || '-',
-        item.ppn || '-',
-        Number(item.netto) || 0,
+        formatTaxDisplay(item.pph),
+        formatTaxDisplay(item.ppn),
+        rowNetto,
         ketStr,
         vendorStr,
       ];

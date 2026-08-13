@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Transaction, SchoolSettings, Vendor } from '../types';
+import { Transaction, SchoolSettings, Vendor, RincianBelanjaItem } from '../types';
 import { parseRawData } from '../data/initialTransactions';
 import {
   X,
@@ -24,9 +24,11 @@ interface ImportExportModalProps {
   transactions: Transaction[];
   schoolSettings?: SchoolSettings;
   vendors?: Vendor[];
+  rincianList?: RincianBelanjaItem[];
   onImport: (newTransactions: Transaction[], merge: boolean) => void;
   onImportSchoolSettings?: (newSettings: SchoolSettings) => void;
   onImportVendors?: (newVendors: Vendor[]) => void;
+  onImportRincian?: (newRincian: RincianBelanjaItem[]) => void;
   onResetDefault: () => void;
 }
 
@@ -36,9 +38,11 @@ export function ImportExportModal({
   transactions,
   schoolSettings,
   vendors,
+  rincianList = [],
   onImport,
   onImportSchoolSettings,
   onImportVendors,
+  onImportRincian,
   onResetDefault,
 }: ImportExportModalProps) {
   const [activeTab, setActiveTab] = useState<'gsheets' | 'file' | 'reset'>('gsheets');
@@ -93,16 +97,27 @@ export function ImportExportModal({
           transactions: transactions,
           schoolSettings: sanitizeSchoolSettingsForSync(schoolSettings),
           vendors: vendors,
+          rincianBelanja: rincianList,
         }),
       });
 
-      const result = await response.json();
-      if (result.status === 'success') {
-        setSyncLog(`✅ Berhasil! ${result.message || 'Data tersimpan di Google Spreadsheet.'}`);
-        alert(`Berhasil menyimpan seluruh data (Transaksi, Informasi Sekolah/Kop Surat, & Vendor) ke Google Spreadsheet!`);
-      } else {
+      const responseText = await response.text();
+      let result: any = null;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        // If Google Apps Script returns HTML or no-cors response
+      }
+
+      if (result && result.status === 'success') {
+        setSyncLog(`✅ Berhasil! ${result.message || 'Data tersimpan di Google Spreadsheet (Transaksi, Sekolah, Vendor, Rincian Belanja Master & 12 Bulan).'}`);
+        alert(`Berhasil menyimpan seluruh data (Transaksi, Sekolah, Vendor, & Rincian Belanja 12 Bulan) ke Google Spreadsheet!`);
+      } else if (result) {
         setSyncLog(`⚠️ Tanggapan: ${result.message || 'Proses selesai'}`);
         alert('Data berhasil dikirimkan ke Google Apps Script!');
+      } else {
+        setSyncLog(`✅ Data telah dikirim ke Google Apps Script Web App!`);
+        alert('Permintaan sinkronisasi data telah dikirim ke Google Sheets.');
       }
     } catch (err: any) {
       console.error('Push error:', err);
@@ -125,9 +140,15 @@ export function ImportExportModal({
 
     try {
       const response = await fetch(webAppUrl.trim());
-      const result = await response.json();
+      const responseText = await response.text();
+      let result: any = null;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        throw new Error('URL Google Apps Script tidak mengembalikan respon JSON valid (Menerima Halaman HTML/Akses Terkunci). Pastikan di Apps Script: Deploy -> Aplikasi Web -> "Siapa Saja" (Anyone) dan URL berakhiran /exec.');
+      }
 
-      if (result.status === 'success') {
+      if (result && result.status === 'success') {
         const pulledMsg: string[] = [];
 
         // 1. Transactions
@@ -152,6 +173,12 @@ export function ImportExportModal({
         if (Array.isArray(result.vendors) && result.vendors.length > 0) {
           onImportVendors?.(result.vendors);
           pulledMsg.push(`${result.vendors.length} vendor`);
+        }
+
+        // 4. Rincian Belanja
+        if (Array.isArray(result.rincianBelanja) && result.rincianBelanja.length > 0) {
+          onImportRincian?.(result.rincianBelanja);
+          pulledMsg.push(`${result.rincianBelanja.length} rincian belanja`);
         }
 
         if (pulledMsg.length > 0) {

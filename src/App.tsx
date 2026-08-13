@@ -208,8 +208,17 @@ export default function App() {
     if (!scriptUrl) return;
 
     fetch(scriptUrl.trim())
-      .then((res) => res.json())
+      .then(async (res) => {
+        const text = await res.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          console.warn('Startup fetch from Google Sheets returned non-JSON response (HTML page or error).');
+          return null;
+        }
+      })
       .then((result) => {
+        if (!result) return;
         if (result.status === 'success') {
           // 1. Transactions
           const txList = Array.isArray(result.transactions)
@@ -877,14 +886,18 @@ export default function App() {
         transactions={transactions}
         schoolSettings={schoolSettings}
         vendors={vendors}
+        rincianList={rincianList}
         onImport={handleImportTransactions}
         onImportSchoolSettings={(newSettings) => {
           setSchoolSettings(newSettings);
-          syncToGoogleSheets(transactions, newSettings, vendors);
+          syncToGoogleSheets(transactions, newSettings, vendors, rincianList);
         }}
         onImportVendors={(newVendors) => {
           setVendors(newVendors);
-          syncToGoogleSheets(transactions, schoolSettings, newVendors);
+          syncToGoogleSheets(transactions, schoolSettings, newVendors, rincianList);
+        }}
+        onImportRincian={(newRincian) => {
+          setRincianList(newRincian);
         }}
         onResetDefault={handleResetDefault}
       />

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Transaction, Vendor, HonorRecipient } from '../types';
-import { X, Save, PlusCircle, Store, Settings, FolderPlus, UserCheck, Copy, AlertTriangle, CreditCard } from 'lucide-react';
+import { parseTaxAmount, calculateEffectiveNetto } from '../utils/taxCalculator';
+import { X, Save, PlusCircle, Store, Settings, FolderPlus, UserCheck, Copy, AlertTriangle, CreditCard, Calculator } from 'lucide-react';
 import { DEFAULT_CATEGORIES } from './CategoryManagementModal';
 
 interface AddEditTransactionModalProps {
@@ -575,80 +576,110 @@ export function AddEditTransactionModal({
               </div>
 
               {/* ROW 4: FINANCIAL & TAX (NETTO, PPH, PPN) */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-100/70 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
-                <div>
-                  <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
-                    Nominal Netto (Rp)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.netto || ''}
-                    onChange={(e) => setFormData({ ...formData, netto: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
-                    placeholder="1500000"
-                    required
-                  />
-                </div>
+              <div className="bg-slate-100/70 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">
+                      Nominal Belanja / Bruto (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.netto || ''}
+                      onChange={(e) => setFormData({ ...formData, netto: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                      placeholder="1500000"
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span>PPh</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.pph || ''}
-                    onChange={(e) => setFormData({ ...formData, pph: e.target.value })}
-                    className="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
-                    placeholder="-"
-                  />
-                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    {['-', '1.5%', '2%', '5%', '21'].map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setFormData((prev) => ({ ...prev, pph: preset }))}
-                        className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
-                          formData.pph === preset
-                            ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
-                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {preset}
-                      </button>
-                    ))}
+                  <div>
+                    <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <span>PPh</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.pph || ''}
+                      onChange={(e) => setFormData({ ...formData, pph: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                      placeholder="Contoh: 100000 atau 5%"
+                    />
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {['-', '1.5%', '2%', '5%', '15%', '21%'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, pph: preset }))}
+                          className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
+                            formData.pph === preset
+                              ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                      <span>PPN</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.ppn || ''}
+                      onChange={(e) => setFormData({ ...formData, ppn: e.target.value })}
+                      className="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                      placeholder="Contoh: 220000 atau 11%"
+                    />
+                    <div className="flex items-center gap-1 mt-1 flex-wrap">
+                      {['-', '11%', '12%'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, ppn: preset }))}
+                          className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
+                            formData.ppn === preset
+                              ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                    <span>PPN</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Untuk SI</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.ppn || ''}
-                    onChange={(e) => setFormData({ ...formData, ppn: e.target.value })}
-                    className="w-full px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
-                    placeholder="-"
-                  />
-                  <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    {['-', '11%', '12%'].map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setFormData((prev) => ({ ...prev, ppn: preset }))}
-                        className={`px-1.5 py-0.5 text-[10px] font-mono rounded border transition-colors cursor-pointer ${
-                          formData.ppn === preset
-                            ? 'bg-indigo-600 text-white border-indigo-600 font-bold'
-                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        {preset}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {/* LIVE CALCULATION PREVIEW FOR STANDING INSTRUCTION */}
+                {(() => {
+                  const baseVal = Number(formData.netto) || 0;
+                  const pphAmt = parseTaxAmount(formData.pph, baseVal);
+                  const ppnAmt = parseTaxAmount(formData.ppn, baseVal);
+                  const effectiveNettoVal = Math.max(0, baseVal - pphAmt - ppnAmt);
+                  const hasTax = pphAmt > 0 || ppnAmt > 0;
+
+                  return (
+                    <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                        <Calculator className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>Kalkulasi Standing Instruction:</span>
+                      </div>
+                      <div className="flex items-center gap-3 font-mono">
+                        {hasTax && (
+                          <span className="text-rose-600 dark:text-rose-400">
+                            Potongan: -Rp {(pphAmt + ppnAmt).toLocaleString('id-ID')}
+                          </span>
+                        )}
+                        <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-md font-black border border-emerald-300 dark:border-emerald-800">
+                          Netto SI: Rp {effectiveNettoVal.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
             </div>

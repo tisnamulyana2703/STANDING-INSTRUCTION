@@ -119,65 +119,91 @@ export function printDocument(elementId: string, margins?: PrintMarginOptions): 
   const element = document.getElementById(elementId);
   if (!element) return;
 
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
+  try {
+    let iframe = document.getElementById('print-iframe-target') as HTMLIFrameElement;
+    if (!iframe) {
+      iframe = document.createElement('iframe');
+      iframe.id = 'print-iframe-target';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.visibility = 'hidden';
+      document.body.appendChild(iframe);
+    }
 
-  const top = margins?.marginTop ?? 10;
-  const bottom = margins?.marginBottom ?? 10;
-  const left = margins?.marginLeft ?? 12;
-  const right = margins?.marginRight ?? 12;
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!doc) return;
 
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Print Document - Standing Instruction</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <style>
-          @page {
-            size: A4 portrait;
-            margin: ${top}mm ${right}mm ${bottom}mm ${left}mm;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            background: #ffffff;
-            font-family: serif;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          #standing-instruction-document {
-            border: none !important;
-            box-shadow: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          @media print {
+    const styleTags = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => node.outerHTML)
+      .join('\n');
+
+    const top = margins?.marginTop ?? 10;
+    const bottom = margins?.marginBottom ?? 10;
+    const left = margins?.marginLeft ?? 12;
+    const right = margins?.marginRight ?? 12;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Print Document</title>
+          ${styleTags}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: ${top}mm ${right}mm ${bottom}mm ${left}mm;
+            }
             body {
+              margin: 0;
               padding: 0;
+              background: #ffffff;
+              font-family: serif;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             #standing-instruction-document {
               border: none !important;
               box-shadow: none !important;
               width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
             }
-          }
-        </style>
-      </head>
-      <body>
-        ${element.outerHTML}
-        <script>
-          setTimeout(() => {
-            window.print();
-            window.close();
-          }, 500);
-        </script>
-      </body>
-    </html>
-  `;
+            @media print {
+              body {
+                padding: 0;
+              }
+              #standing-instruction-document {
+                border: none !important;
+                box-shadow: none !important;
+                width: 100% !important;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${element.outerHTML}
+        </body>
+      </html>
+    `);
+    doc.close();
 
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.warn('Print iframe execution error:', err);
+        window.print();
+      }
+    }, 500);
+  } catch (err) {
+    console.warn('printDocument error:', err);
+    window.print();
+  }
 }

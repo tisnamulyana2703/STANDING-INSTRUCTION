@@ -1,56 +1,88 @@
 export const GoogleAppsScriptCode = `/**
  * =========================================================================
  * KODE GOOGLE APPS SCRIPT (Code.gs) UNTUK INTEGRASI DATABASE BOSP SPREADSHEET
+ * VERSI LENGKAP: DATABASE TRANSAKSI, INFO SEKOLAH, VENDOR, & 12 SHEET BULANAN
  * =========================================================================
  * 
- * LANGKAH DOKUMENTASI & CARA MEMASANG:
+ * DAFTAR SHEET YANG DIBUAT OTOMATIS:
+ * 1. DATABASE_TRANSAKSI       -> Database seluruh transaksi masuk & keluar BOSP
+ * 2. INFORMASI_SEKOLAH        -> Data Kop Surat, Rekening Utama, Kepala Sekolah, & Bendahara
+ * 3. DATABASE_VENDOR          -> Database Master Vendor / Toko Rekanan
+ * 4. RINCIAN_BELANJA          -> Master Sheet seluruh Rincian Kertas Kerja BOSP
+ * 5. RINCIAN_JANUARI - DESEMBER -> 12 Sheet terpisah per bulan (Januari s.d. Desember)
+ * 
+ * LANGKAH CARA MEMASANG:
  * 1. Buka Google Sheets Anda di https://sheets.google.com (Buat Spreadsheet Baru)
- * 2. Klik menu "Ekstensi" -> "Apps Script" (Extension -> Apps Script)
- * 3. Hapus semua kode default, lalu COPAS (Paste) seluruh kode di bawah ini ke editor.
- * 4. Klik ikon Simpan (Diskette) / Ctrl+S.
- * 5. Klik tombol "Terapkan" -> "Penerapan baru" (Deploy -> New deployment)
- *    - PENTING: Jika sudah pernah deploy, pilih "Penerapan Baru" atau edit "Versi Baru" (New Version)!
- * 6. Pilih jenis: "Aplikasi Web" (Web App)
- *    - Deskripsi: API Database BOSP SD
+ * 2. Klik menu "Ekstensi" -> "Apps Script" (Extensions -> Apps Script)
+ * 3. Hapus semua kode default di editor Apps Script.
+ * 4. Salin (Copy) seluruh kode di bawah ini lalu Tempel (Paste) ke editor.
+ * 5. Klik ikon Simpan (Diskette) / Ctrl+S.
+ * 6. Klik tombol biru "Terapkan" -> "Penerapan baru" (Deploy -> New deployment).
+ * 7. Pilih jenis: "Aplikasi Web" (Web App).
+ *    - Deskripsi: API Database BOSP Lengkap
  *    - Jalankan sebagai (Execute as): Saya (Me)
  *    - Yang memiliki akses (Who has access): Siapa saja (Anyone) -> SANGAT PENTING!
- * 7. Klik "Terapkan" (Deploy), lalu Berikan Izin Akses (Grant Access).
- * 8. Salin URL Aplikasi Web (Web App URL) yang dihasilkan (berakhiran /exec).
- * 9. Tempelkan (Paste) URL tersebut pada aplikasi Si-Standing BOSP.
+ * 8. Klik "Terapkan" (Deploy), lalu Berikan Izin Akses Google (Grant Access).
+ * 9. Salin URL Aplikasi Web (Web App URL) yang berakhiran "/exec".
+ * 10. Tempelkan URL tersebut pada aplikasi Si-Standing BOSP.
  */
+
+var BULAN_LIST = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+];
+
+var HEADERS_TX = [
+  "NO", "TANGGAL", "TIPE TRANSAKSI", "JENIS TRANSAKSI", "NO. SURAT",
+  "NAMA PENERIMA", "NO. REK PENERIMA", "NAMA BANK", "PPh", "PPN",
+  "NETTO", "SIPLAH", "NO. PO", "KETERANGAN", "VENDOR",
+  "STATUS SI", "BULAN", "TAHUN", "DESKRIPSI FULL", "KATEGORI"
+];
+
+var HEADERS_INFO = ["PROPERTY", "VALUE"];
+
+var HEADERS_VENDOR = ["ID", "NAMA_VENDOR", "ALAMAT", "NO_HP", "NPWP"];
+
+var HEADERS_RINCIAN = [
+  "NO_URUT", "KODE_REKENING", "KODE_PROGRAM", "URAIAN",
+  "VOLUME", "SATUAN", "TARIF_HARGA", "JUMLAH", "IS_HEADER", "BULAN", "TAHUN"
+];
 
 function setupDatabase() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
   // 1. DATABASE_TRANSAKSI
   var sheetTx = getOrCreateSheet(ss, "DATABASE_TRANSAKSI");
-  var headersTx = [
-    "NO", "TANGGAL", "TIPE TRANSAKSI", "JENIS TRANSAKSI", "NO. SURAT",
-    "NAMA PENERIMA", "NO. REK PENERIMA", "NAMA BANK", "PPh", "PPN",
-    "NETTO", "SIPLAH", "NO. PO", "KETERANGAN", "VENDOR",
-    "STATUS SI", "BULAN", "TAHUN", "DESKRIPSI FULL", "KATEGORI"
-  ];
-  setSheetHeader(sheetTx, headersTx);
+  setSheetHeader(sheetTx, HEADERS_TX);
 
   // 2. INFORMASI_SEKOLAH
   var sheetInfo = getOrCreateSheet(ss, "INFORMASI_SEKOLAH");
-  var headersInfo = ["PROPERTY", "VALUE"];
-  setSheetHeader(sheetInfo, headersInfo);
+  setSheetHeader(sheetInfo, HEADERS_INFO);
 
   // 3. DATABASE_VENDOR
   var sheetVendor = getOrCreateSheet(ss, "DATABASE_VENDOR");
-  var headersVendor = ["ID", "NAMA_VENDOR", "ALAMAT", "NO_HP", "NPWP"];
-  setSheetHeader(sheetVendor, headersVendor);
+  setSheetHeader(sheetVendor, HEADERS_VENDOR);
   
-  // 4. RINCIAN_BELANJA
+  // 4. RINCIAN_BELANJA (Master)
   var sheetRincian = getOrCreateSheet(ss, "RINCIAN_BELANJA");
-  var headersRincian = [
-    "NO_URUT", "KODE_REKENING", "KODE_PROGRAM", "URAIAN",
-    "VOLUME", "SATUAN", "TARIF_HARGA", "JUMLAH", "IS_HEADER", "BULAN", "TAHUN"
-  ];
-  setSheetHeader(sheetRincian, headersRincian);
+  setSheetHeader(sheetRincian, HEADERS_RINCIAN);
 
-  SpreadsheetApp.getUi().alert("✅ Database BOSP Berhasil Disiapkan!\nSheet 'DATABASE_TRANSAKSI', 'INFORMASI_SEKOLAH', 'DATABASE_VENDOR', & 'RINCIAN_BELANJA' siap digunakan.");
+  // 5. 12 SHEET RINCIAN BULANAN (RINCIAN_JANUARI s/d RINCIAN_DESEMBER)
+  for (var m = 0; m < BULAN_LIST.length; m++) {
+    var monthName = BULAN_LIST[m];
+    var sheetMonth = getOrCreateSheet(ss, "RINCIAN_" + monthName.toUpperCase());
+    setSheetHeader(sheetMonth, HEADERS_RINCIAN);
+  }
+
+  // Format and arrange sheets
+  try {
+    var ui = SpreadsheetApp.getUi();
+    if (ui) {
+      ui.alert("Database BOSP Berhasil Disiapkan!\\n\\nSheet yang telah aktif:\\n- DATABASE_TRANSAKSI\\n- INFORMASI_SEKOLAH\\n- DATABASE_VENDOR\\n- RINCIAN_BELANJA (Master)\\n- RINCIAN_JANUARI s.d. RINCIAN_DESEMBER (12 Sheet Bulanan)");
+    }
+  } catch (eUi) {
+    Logger.log("UI Alert setup info: " + eUi.toString());
+  }
   return "Setup Berhasil";
 }
 
@@ -69,10 +101,19 @@ function setSheetHeader(sheet, headers) {
 }
 
 function onOpen() {
-  var ui = SpreadsheetApp.getUi();
-  ui.createMenu("Si-Standing BOSP")
-    .addItem("Inisialisasi / Setup Database", "setupDatabase")
-    .addToUi();
+  try {
+    var ui = SpreadsheetApp.getUi();
+    if (ui) {
+      ui.createMenu("Si-Standing BOSP")
+        .addItem("1. Inisialisasi / Setup Database Lengkap", "setupDatabase")
+        .addItem("2. Distribusikan Rincian Master ke 12 Sheet Bulanan", "distributeRincianToMonthlySheets")
+        .addItem("3. Gabungkan Sheet Bulanan ke Master RINCIAN_BELANJA", "combineMonthlySheetsToMaster")
+        .addItem("4. Format Seluruh Header Sheet", "formatAllSheets")
+        .addToUi();
+    }
+  } catch (eOpen) {
+    Logger.log("onOpen UI error: " + eOpen.toString());
+  }
 }
 
 function doGet(e) {
@@ -83,7 +124,6 @@ function doGet(e) {
     var sheetTx = ss.getSheetByName("DATABASE_TRANSAKSI");
     var transactions = [];
     if (sheetTx) {
-      // getDisplayValues() mempertahankan teks seperti nomor HP / rekening berawalan 0
       var valuesTx = sheetTx.getDataRange().getDisplayValues();
       for (var i = 1; i < valuesTx.length; i++) {
         var row = valuesTx[i];
@@ -108,7 +148,7 @@ function doGet(e) {
           vendor: cleanStr(row[14]) || "NON SIPLAH",
           statusSi: cleanStr(row[15]) || "BELUM CETAK",
           bulan: cleanStr(row[16]),
-          tahun: cleanStr(row[17]) || "2024",
+          tahun: cleanStr(row[17]) || "2026",
           deskripsiFull: cleanStr(row[18]),
           kategori: cleanStr(row[19]) || "JASA KANTOR"
         });
@@ -179,7 +219,7 @@ function doGet(e) {
       }
     }
 
-    // --- 4. RINCIAN BELANJA ---
+    // --- 4. RINCIAN BELANJA (Master Sheet) ---
     var sheetRincian = ss.getSheetByName("RINCIAN_BELANJA");
     var rincianBelanja = [];
     if (sheetRincian) {
@@ -201,6 +241,35 @@ function doGet(e) {
           bulan: cleanStr(rRow[9]) || "Agustus",
           tahun: cleanStr(rRow[10]) || "2026"
         });
+      }
+    }
+
+    // If master sheet is empty, optionally aggregate from 12 monthly sheets
+    if (rincianBelanja.length === 0) {
+      for (var mIdx = 0; mIdx < BULAN_LIST.length; mIdx++) {
+        var mName = BULAN_LIST[mIdx];
+        var shM = ss.getSheetByName("RINCIAN_" + mName.toUpperCase());
+        if (shM && shM.getLastRow() > 1) {
+          var valM = shM.getDataRange().getDisplayValues();
+          for (var mr = 1; mr < valM.length; mr++) {
+            var rowM = valM[mr];
+            if (!rowM[0] && !rowM[3]) continue;
+            rincianBelanja.push({
+              id: "rb-" + mName.toLowerCase() + "-" + mr,
+              noUrut: parseInt(cleanStr(rowM[0]), 10) || (rincianBelanja.length + 1),
+              kodeRekening: cleanStr(rowM[1]),
+              kodeProgram: cleanStr(rowM[2]),
+              uraian: cleanStr(rowM[3]),
+              volume: cleanStr(rowM[4]),
+              satuan: cleanStr(rowM[5]),
+              tarifHarga: Number(cleanStr(rowM[6]).replace(/[^0-9]/g, "")) || 0,
+              jumlah: Number(cleanStr(rowM[7]).replace(/[^0-9]/g, "")) || 0,
+              isHeader: cleanStr(rowM[8]).toLowerCase() === "true" || cleanStr(rowM[8]) === "1",
+              bulan: cleanStr(rowM[9]) || mName,
+              tahun: cleanStr(rowM[10]) || "2026"
+            });
+          }
+        }
       }
     }
 
@@ -231,14 +300,8 @@ function doPost(e) {
       try {
         if (postData.transactions && Array.isArray(postData.transactions)) {
           var sheetTx = getOrCreateSheet(ss, "DATABASE_TRANSAKSI");
-          var headersTx = [
-            "NO", "TANGGAL", "TIPE TRANSAKSI", "JENIS TRANSAKSI", "NO. SURAT",
-            "NAMA PENERIMA", "NO. REK PENERIMA", "NAMA BANK", "PPh", "PPN",
-            "NETTO", "SIPLAH", "NO. PO", "KETERANGAN", "VENDOR",
-            "STATUS SI", "BULAN", "TAHUN", "DESKRIPSI FULL", "KATEGORI"
-          ];
           sheetTx.clearContents();
-          setSheetHeader(sheetTx, headersTx);
+          setSheetHeader(sheetTx, HEADERS_TX);
           
           if (postData.transactions.length > 0) {
             var rowsTx = postData.transactions.map(function(t, idx) {
@@ -260,12 +323,12 @@ function doPost(e) {
                 safeVal(t.vendor || "NON SIPLAH"),
                 safeVal(t.statusSi || "BELUM CETAK"),
                 safeVal(t.bulan),
-                toTextCell(t.tahun || "2024"),
+                toTextCell(t.tahun || "2026"),
                 safeVal(t.deskripsiFull),
                 safeVal(t.kategori || "JASA KANTOR")
               ];
             });
-            var rangeTx = sheetTx.getRange(2, 1, rowsTx.length, headersTx.length);
+            var rangeTx = sheetTx.getRange(2, 1, rowsTx.length, HEADERS_TX.length);
             rangeTx.setNumberFormat("@");
             rangeTx.setValues(rowsTx);
           }
@@ -282,9 +345,8 @@ function doPost(e) {
         if (postData.schoolSettings) {
           var s = postData.schoolSettings;
           var sheetInfo = getOrCreateSheet(ss, "INFORMASI_SEKOLAH");
-          var headersInfo = ["PROPERTY", "VALUE"];
           sheetInfo.clearContents();
-          setSheetHeader(sheetInfo, headersInfo);
+          setSheetHeader(sheetInfo, HEADERS_INFO);
 
           var infoRows = [
             ["PEMERINTAH", safeVal(s.pemerintah)],
@@ -327,9 +389,8 @@ function doPost(e) {
       try {
         if (postData.vendors && Array.isArray(postData.vendors)) {
           var sheetVendor = getOrCreateSheet(ss, "DATABASE_VENDOR");
-          var headersVendor = ["ID", "NAMA_VENDOR", "ALAMAT", "NO_HP", "NPWP"];
           sheetVendor.clearContents();
-          setSheetHeader(sheetVendor, headersVendor);
+          setSheetHeader(sheetVendor, HEADERS_VENDOR);
 
           if (postData.vendors.length > 0) {
             var rowsVendor = postData.vendors.map(function(v) {
@@ -341,7 +402,7 @@ function doPost(e) {
                 toTextCell(v.npwp)
               ];
             });
-            var rangeVendor = sheetVendor.getRange(2, 1, rowsVendor.length, headersVendor.length);
+            var rangeVendor = sheetVendor.getRange(2, 1, rowsVendor.length, HEADERS_VENDOR.length);
             rangeVendor.setNumberFormat("@");
             rangeVendor.setValues(rowsVendor);
           }
@@ -352,20 +413,19 @@ function doPost(e) {
       }
     }
 
-    // --- 4. SAVE RINCIAN BELANJA ---
+    // --- 4. SAVE RINCIAN BELANJA (MASTER & 12 SHEET BULANAN) ---
     if (action === "sync_all" || action === "save_all" || action === "save_rincian_belanja") {
       try {
         if (postData.rincianBelanja && Array.isArray(postData.rincianBelanja)) {
+          var allRincian = postData.rincianBelanja;
+          
+          // 4A. Simpan Master Sheet RINCIAN_BELANJA
           var sheetRincian = getOrCreateSheet(ss, "RINCIAN_BELANJA");
-          var headersRincian = [
-            "NO_URUT", "KODE_REKENING", "KODE_PROGRAM", "URAIAN",
-            "VOLUME", "SATUAN", "TARIF_HARGA", "JUMLAH", "IS_HEADER", "BULAN", "TAHUN"
-          ];
           sheetRincian.clearContents();
-          setSheetHeader(sheetRincian, headersRincian);
+          setSheetHeader(sheetRincian, HEADERS_RINCIAN);
 
-          if (postData.rincianBelanja.length > 0) {
-            var rowsRincian = postData.rincianBelanja.map(function(rb, idx) {
+          if (allRincian.length > 0) {
+            var rowsRincian = allRincian.map(function(rb, idx) {
               return [
                 rb.noUrut || (idx + 1),
                 toTextCell(rb.kodeRekening),
@@ -380,17 +440,90 @@ function doPost(e) {
                 toTextCell(rb.tahun || "2026")
               ];
             });
-            var rangeRincian = sheetRincian.getRange(2, 1, rowsRincian.length, headersRincian.length);
+            var rangeRincian = sheetRincian.getRange(2, 1, rowsRincian.length, HEADERS_RINCIAN.length);
             rangeRincian.setNumberFormat("@");
             rangeRincian.setValues(rowsRincian);
           }
-          logs.push("RINCIAN_BELANJA (" + postData.rincianBelanja.length + " rincian)");
+
+          // 4B. Otomatis Distribusikan ke 12 Sheet Bulanan (RINCIAN_JANUARI s/d RINCIAN_DESEMBER)
+          for (var b = 0; b < BULAN_LIST.length; b++) {
+            var bName = BULAN_LIST[b];
+            var bNameLower = bName.toLowerCase();
+            var monthItems = allRincian.filter(function(item) {
+              var itemBulan = (item.bulan || "").trim().toLowerCase();
+              return itemBulan.indexOf(bNameLower) !== -1;
+            });
+
+            var sheetM = getOrCreateSheet(ss, "RINCIAN_" + bName.toUpperCase());
+            sheetM.clearContents();
+            setSheetHeader(sheetM, HEADERS_RINCIAN);
+
+            if (monthItems.length > 0) {
+              var rowsM = monthItems.map(function(rb, idx) {
+                return [
+                  rb.noUrut || (idx + 1),
+                  toTextCell(rb.kodeRekening),
+                  toTextCell(rb.kodeProgram),
+                  safeVal(rb.uraian),
+                  safeVal(rb.volume),
+                  safeVal(rb.satuan),
+                  rb.tarifHarga || 0,
+                  rb.jumlah || 0,
+                  rb.isHeader ? "true" : "false",
+                  safeVal(rb.bulan || bName),
+                  toTextCell(rb.tahun || "2026")
+                ];
+              });
+              var rangeM = sheetM.getRange(2, 1, rowsM.length, HEADERS_RINCIAN.length);
+              rangeM.setNumberFormat("@");
+              rangeM.setValues(rowsM);
+            }
+          }
+
+          logs.push("RINCIAN_BELANJA (Master: " + allRincian.length + " item & 12 Sheet Bulanan)");
         }
       } catch (errRincian) {
         logs.push("ERROR RINCIAN_BELANJA: " + errRincian.toString());
       }
     }
 
+    // --- 5. SAVE RINCIAN SPESIFIK 1 BULAN TERTENTU (save_rincian_bulan) ---
+    if (action === "save_rincian_bulan" && postData.targetBulan && Array.isArray(postData.items)) {
+      try {
+        var tBulan = String(postData.targetBulan).trim();
+        var tBulanLower = tBulan.toLowerCase();
+        var sheetTargetM = getOrCreateSheet(ss, "RINCIAN_" + tBulan.toUpperCase());
+        sheetTargetM.clearContents();
+        setSheetHeader(sheetTargetM, HEADERS_RINCIAN);
+
+        if (postData.items.length > 0) {
+          var rowsTargetM = postData.items.map(function(rb, idx) {
+            return [
+              rb.noUrut || (idx + 1),
+              toTextCell(rb.kodeRekening),
+              toTextCell(rb.kodeProgram),
+              safeVal(rb.uraian),
+              safeVal(rb.volume),
+              safeVal(rb.satuan),
+              rb.tarifHarga || 0,
+              rb.jumlah || 0,
+              rb.isHeader ? "true" : "false",
+              safeVal(rb.bulan || tBulan),
+              toTextCell(rb.tahun || "2026")
+            ];
+          });
+          var rTargetM = sheetTargetM.getRange(2, 1, rowsTargetM.length, HEADERS_RINCIAN.length);
+          rTargetM.setNumberFormat("@");
+          rTargetM.setValues(rowsTargetM);
+        }
+
+        // Sinkronkan juga master RINCIAN_BELANJA
+        combineMonthlySheetsToMaster();
+        logs.push("RINCIAN_" + tBulan.toUpperCase() + " (" + postData.items.length + " item)");
+      } catch (errTargetBulan) {
+        logs.push("ERROR SAVE RINCIAN BULAN: " + errTargetBulan.toString());
+      }
+    }
 
     return responseJSON({
       status: "success",
@@ -399,6 +532,109 @@ function doPost(e) {
     });
   } catch (err) {
     return responseJSON({ status: "error", message: err.toString() });
+  }
+}
+
+// Fungsi Menu Tambahan: Distribusikan Master ke 12 Sheet Bulanan
+function distributeRincianToMonthlySheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetMaster = ss.getSheetByName("RINCIAN_BELANJA");
+  if (!sheetMaster || sheetMaster.getLastRow() <= 1) {
+    try {
+      var uiMaster = SpreadsheetApp.getUi();
+      if (uiMaster) uiMaster.alert("Sheet RINCIAN_BELANJA masih kosong.");
+    } catch (eM) {
+      Logger.log("Master alert: " + eM.toString());
+    }
+    return;
+  }
+
+  var values = sheetMaster.getDataRange().getDisplayValues();
+  for (var b = 0; b < BULAN_LIST.length; b++) {
+    var bName = BULAN_LIST[b];
+    var bNameLower = bName.toLowerCase();
+    var rows = [];
+
+    for (var r = 1; r < values.length; r++) {
+      var row = values[r];
+      var rowBulan = (row[9] || "").trim().toLowerCase();
+      if (rowBulan.indexOf(bNameLower) !== -1) {
+        rows.push(row);
+      }
+    }
+
+    var sheetM = getOrCreateSheet(ss, "RINCIAN_" + bName.toUpperCase());
+    sheetM.clearContents();
+    setSheetHeader(sheetM, HEADERS_RINCIAN);
+
+    if (rows.length > 0) {
+      var range = sheetM.getRange(2, 1, rows.length, HEADERS_RINCIAN.length);
+      range.setNumberFormat("@");
+      range.setValues(rows);
+    }
+  }
+
+  try {
+    var uiDist = SpreadsheetApp.getUi();
+    if (uiDist) {
+      uiDist.alert("Berhasil mendistribusikan data master ke seluruh 12 Sheet Bulanan (Januari s.d. Desember)!");
+    }
+  } catch (eDist) {
+    Logger.log("Distribute alert: " + eDist.toString());
+  }
+}
+
+// Fungsi Menu Tambahan: Gabungkan 12 Sheet Bulanan ke Sheet Master
+function combineMonthlySheetsToMaster() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var masterRows = [];
+
+  for (var b = 0; b < BULAN_LIST.length; b++) {
+    var bName = BULAN_LIST[b];
+    var sheetM = ss.getSheetByName("RINCIAN_" + bName.toUpperCase());
+    if (sheetM && sheetM.getLastRow() > 1) {
+      var values = sheetM.getDataRange().getDisplayValues();
+      for (var r = 1; r < values.length; r++) {
+        if (values[r][0] || values[r][3]) {
+          masterRows.push(values[r]);
+        }
+      }
+    }
+  }
+
+  if (masterRows.length > 0) {
+    var sheetMaster = getOrCreateSheet(ss, "RINCIAN_BELANJA");
+    sheetMaster.clearContents();
+    setSheetHeader(sheetMaster, HEADERS_RINCIAN);
+
+    var range = sheetMaster.getRange(2, 1, masterRows.length, HEADERS_RINCIAN.length);
+    range.setNumberFormat("@");
+    range.setValues(masterRows);
+  }
+}
+
+// Format Seluruh Sheet
+function formatAllSheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    var s = sheets[i];
+    if (s.getLastRow() > 0) {
+      s.setFrozenRows(1);
+      var header = s.getRange(1, 1, 1, s.getLastColumn());
+      header.setFontWeight("bold");
+      header.setBackground("#1e293b");
+      header.setFontColor("#ffffff");
+      header.setHorizontalAlignment("center");
+    }
+  }
+  try {
+    var uiFmt = SpreadsheetApp.getUi();
+    if (uiFmt) {
+      uiFmt.alert("Seluruh sheet berhasil diformat rapi!");
+    }
+  } catch (eFmt) {
+    Logger.log("Format alert: " + eFmt.toString());
   }
 }
 

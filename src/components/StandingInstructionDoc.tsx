@@ -1,6 +1,7 @@
 import React from 'react';
 import { Transaction, SchoolSettings, StandingInstructionConfig } from '../types';
 import { formatRupiah, terbilangRupiah, formatTitimangsa } from '../utils/terbilang';
+import { calculateEffectiveNetto, formatTaxDisplay } from '../utils/taxCalculator';
 import { LogoBandungBarat, LogoTutWuri } from './Logos';
 
 interface StandingInstructionDocProps {
@@ -16,7 +17,7 @@ export function StandingInstructionDoc({
   items,
   documentRef,
 }: StandingInstructionDocProps) {
-  const totalNetto = items.reduce((acc, curr) => acc + (curr.netto || 0), 0);
+  const totalNetto = items.reduce((acc, curr) => acc + calculateEffectiveNetto(curr), 0);
 
   // Derived purpose if empty
   const purpose = config.tujuanPenggunaan || (items.length > 0 ? items[0].jenisTransaksi : 'Pembayaran Transfer');
@@ -196,29 +197,32 @@ export function StandingInstructionDoc({
             </tr>
           </thead>
           <tbody>
-            {items.map((item, idx) => (
-              <tr key={item.id ? `si-doc-${item.id}-${idx}` : `si-doc-${idx}`}>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-center font-sans">{idx + 1}</td>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="font-semibold uppercase">{item.namaPenerima}</td>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px', whiteSpace: 'nowrap' }} className="text-center font-mono text-[11px] font-semibold text-slate-900">{item.noRekPenerima || '-'}</td>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-center font-sans font-medium">{item.namaBank || 'BJB'}</td>
-                <td style={{ border: '1px solid #000000', padding: '3px 2px' }} className="text-center">{item.pph || '-'}</td>
-                <td style={{ border: '1px solid #000000', padding: '3px 2px' }} className="text-center">{item.ppn || '-'}</td>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px', whiteSpace: 'nowrap' }} className="text-right font-bold font-mono text-[11.5px] text-slate-900">
-                  {formatRupiah(item.netto)}
-                </td>
-                <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-[9.5px]">
-                  <div className="italic">
-                    {item.keterangan || item.deskripsiFull || purpose}
-                  </div>
-                  {item.vendor && item.vendor.trim() !== '' && item.vendor !== '-' && (
-                    <div className="font-bold not-italic text-[9px] uppercase text-slate-900 mt-0.5">
-                      [{item.vendor.trim()}]
+            {items.map((item, idx) => {
+              const rowNetto = calculateEffectiveNetto(item);
+              return (
+                <tr key={item.id ? `si-doc-${item.id}-${idx}` : `si-doc-${idx}`}>
+                  <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-center font-sans">{idx + 1}</td>
+                  <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="font-semibold uppercase">{item.namaPenerima}</td>
+                  <td style={{ border: '1px solid #000000', padding: '3px 4px', whiteSpace: 'nowrap' }} className="text-center font-mono text-[11px] font-semibold text-slate-900">{item.noRekPenerima || '-'}</td>
+                  <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-center font-sans font-medium">{item.namaBank || 'BJB'}</td>
+                  <td style={{ border: '1px solid #000000', padding: '3px 2px' }} className="text-center">{formatTaxDisplay(item.pph)}</td>
+                  <td style={{ border: '1px solid #000000', padding: '3px 2px' }} className="text-center">{formatTaxDisplay(item.ppn)}</td>
+                  <td style={{ border: '1px solid #000000', padding: '3px 4px', whiteSpace: 'nowrap' }} className="text-right font-bold font-mono text-[11.5px] text-slate-900">
+                    {formatRupiah(rowNetto)}
+                  </td>
+                  <td style={{ border: '1px solid #000000', padding: '3px 4px' }} className="text-[9.5px]">
+                    <div className="italic">
+                      {item.keterangan || item.deskripsiFull || purpose}
                     </div>
-                  )}
-                </td>
-              </tr>
-            ))}
+                    {item.vendor && item.vendor.trim() !== '' && item.vendor !== '-' && (
+                      <div className="font-bold not-italic text-[9px] uppercase text-slate-900 mt-0.5">
+                        [{item.vendor.trim()}]
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {/* TOTAL ROW */}
             <tr style={{ backgroundColor: '#f9fafb', color: '#000000' }} className="font-bold text-[10.5px] font-sans">
               <td colSpan={6} style={{ border: '1px solid #000000', padding: '4px' }} className="text-center uppercase tracking-wider">

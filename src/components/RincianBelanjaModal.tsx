@@ -31,8 +31,16 @@ import {
   ArrowRight,
   Info,
   Tag,
-  UserCheck
+  UserCheck,
+  FileUp,
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
+
+export const MONTHS_LIST = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
 
 interface RincianBelanjaModalProps {
   isOpen: boolean;
@@ -69,12 +77,26 @@ export function RincianBelanjaModal({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProgram, setFilterProgram] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'UNREALIZED' | 'REALIZED'>('ALL');
-  const [filterBulan, setFilterBulan] = useState('ALL');
+  const [filterBulan, setFilterBulan] = useState<string>(() => {
+    const match = rincianList.find(i => !i.isHeader && i.bulan);
+    if (match && match.bulan) {
+      const found = MONTHS_LIST.find(m => match.bulan!.toLowerCase().includes(m.toLowerCase()));
+      if (found) return found;
+    }
+    return 'Agustus';
+  });
 
   // PDF Upload & Parser State
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [uploadProgressMsg, setUploadProgressMsg] = useState('');
+
+  // Interactive PDF Import Confirmation Dialog State
+  const [isPdfImportPreviewOpen, setIsPdfImportPreviewOpen] = useState(false);
+  const [pendingImportItems, setPendingImportItems] = useState<RincianBelanjaItem[]>([]);
+  const [pendingImportMonth, setPendingImportMonth] = useState<string>('Januari');
+  const [pendingImportFileName, setPendingImportFileName] = useState<string>('');
+  const [mergeStrategy, setMergeStrategy] = useState<'replace_month' | 'append_month' | 'replace_all'>('replace_month');
 
   // Selection & Realization State
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -106,7 +128,59 @@ export function RincianBelanjaModal({
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState('');
 
-  // Filtered List
+  // Calculate item counts and total per month
+  const monthlyStats = useMemo(() => {
+    const stats: Record<string, { count: number; total: number; realizedCount: number }> = {};
+    for (const m of MONTHS_LIST) {
+      stats[m] = { count: 0, total: 0, realizedCount: 0 };
+    }
+    
+    for (const item of rincianList) {
+      const itemBulan = (item.bulan || '').trim();
+      for (const m of MONTHS_LIST) {
+        if (itemBulan.toLowerCase().includes(m.toLowerCase())) {
+          if (!item.isHeader && item.jumlah > 0) {
+            stats[m].count += 1;
+            stats[m].total += item.jumlah;
+            if (item.isRealized) stats[m].realizedCount += 1;
+          }
+        }
+      }
+    }
+    return stats;
+  }, [rincianList]);
+
+  // Dynamic Program Options for Filtering Kode Program
+  const programOptions = useMemo(() => {
+    const map = new Map<string, string>();
+
+    // Standard SNP 8 Standar
+    map.set('01.', '01 - Standar Kelulusan');
+    map.set('02.', '02 - Standar Isi');
+    map.set('03.', '03 - Standar Proses');
+    map.set('04.', '04 - Standar Tenaga Kependidikan');
+    map.set('05.', '05 - Standar Sarana Prasarana');
+    map.set('06.', '06 - Standar Pengelolaan');
+    map.set('07.', '07 - Standar Pembiayaan');
+    map.set('08.', '08 - Standar Penilaian');
+
+    // Extract all unique Kode Program present in rincianList
+    const uniqueCodes = Array.from(
+      new Set(rincianList.map(item => (item.kodeProgram || '').trim()).filter(Boolean))
+    ).sort();
+
+    uniqueCodes.forEach((code) => {
+      if (!map.has(code)) {
+        const headerMatch = rincianList.find(i => (i.kodeProgram || '').trim() === code && i.isHeader && i.uraian);
+        const label = headerMatch ? `${code} - ${headerMatch.uraian.slice(0, 35)}...` : `Kode: ${code}`;
+        map.set(code, label);
+      }
+    });
+
+    return Array.from(map.entries());
+  }, [rincianList]);
+
+  // Filtered List based on active month, search, program, and realization status
   const filteredList = useMemo(() => {
     return rincianList.filter(item => {
       const matchSearch = 
@@ -114,7 +188,8 @@ export function RincianBelanjaModal({
         item.kodeRekening.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.kodeProgram.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchProg = filterProgram === 'ALL' || item.kodeProgram.startsWith(filterProgram);
+      const itemKp = (item.kodeProgram || '').trim();
+      const matchProg = filterProgram === 'ALL' || itemKp === filterProgram || itemKp.startsWith(filterProgram) || itemKp.includes(filterProgram);
 
       let matchStatus = true;
       if (filterStatus === 'REALIZED') matchStatus = !!item.isRealized;
@@ -149,29 +224,31 @@ export function RincianBelanjaModal({
     return selectedItemsList.reduce((acc, curr) => acc + curr.jumlah, 0);
   }, [selectedItemsList]);
 
-  // Total expenditure sum
+  // Total expenditure sum of current active month view
   const calculatedTotalBelanja = useMemo(() => {
-    const listToSum = (filterBulan !== 'ALL' || filterProgram !== 'ALL' || filterStatus !== 'ALL' || searchTerm !== '')
-      ? filteredList
-      : rincianList;
-
-    const detailSum = listToSum
+    const detailSum = filteredList
       .filter(i => !i.isHeader && i.jumlah > 0)
       .reduce((acc, curr) => acc + curr.jumlah, 0);
     
     if (detailSum > 0) return detailSum;
-    return listToSum.reduce((acc, curr) => acc + curr.jumlah, 0);
-  }, [rincianList, filteredList, filterBulan, filterProgram, filterStatus, searchTerm]);
+    return filteredList.reduce((acc, curr) => acc + curr.jumlah, 0);
+  }, [filteredList]);
 
   const totalRealizedAmount = useMemo(() => {
-    return rincianList
+    return filteredList
       .filter(i => !i.isHeader && i.isRealized && i.jumlah > 0)
       .reduce((acc, curr) => acc + curr.jumlah, 0);
-  }, [rincianList]);
+  }, [filteredList]);
 
   const sisaAnggaran = totalPenerimaan - calculatedTotalBelanja;
 
   if (!isOpen) return null;
+
+  // Month Tab Switcher Handler
+  const handleSelectMonthTab = (selectedM: string) => {
+    setFilterBulan(selectedM);
+    setBulan(`${selectedM} 2026`);
+  };
 
   // Selection Handlers
   const toggleSelectAll = () => {
@@ -234,7 +311,7 @@ export function RincianBelanjaModal({
     setIsRealizeModalOpen(true);
   };
 
-  // PDF Upload Handler via Gemini AI Backend / Parser
+  // PDF Upload Handler via Gemini AI Backend
   const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -258,18 +335,18 @@ export function RincianBelanjaModal({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               pdfBase64: base64String,
-              fileName: file.name
+              fileName: file.name,
+              targetMonth: filterBulan !== 'ALL' ? filterBulan : 'Januari'
             })
           });
 
           let data: any = null;
-          const contentType = res.headers.get('content-type') || '';
+          const rawText = await res.text().catch(() => '');
 
-          if (res.ok && contentType.includes('application/json')) {
-            data = await res.json();
-          } else {
-            const rawErrorMsg = await res.text().catch(() => '');
-            console.warn('Backend endpoint returned non-JSON:', res.status, rawErrorMsg.slice(0, 100));
+          try {
+            data = JSON.parse(rawText);
+          } catch {
+            console.warn('Backend endpoint returned non-JSON:', res.status, rawText.slice(0, 100));
             data = {
               success: false,
               error: 'Server tidak mengembalikan format JSON (Kemungkinan file PDF terlalu besar atau kunci API AI belum aktif)'
@@ -277,6 +354,8 @@ export function RincianBelanjaModal({
           }
 
           if (data && data.success && Array.isArray(data.items) && data.items.length > 0) {
+            const detectedM = data.detectedMonth || (filterBulan !== 'ALL' ? filterBulan : 'Januari');
+
             const formattedItems: RincianBelanjaItem[] = data.items.map((item: any, idx: number) => ({
               id: `rb-pdf-${Date.now()}-${idx}`,
               noUrut: idx + 1,
@@ -288,32 +367,20 @@ export function RincianBelanjaModal({
               tarifHarga: Number(item.tarifHarga) || 0,
               jumlah: Number(item.jumlah) || 0,
               isHeader: !!item.isHeader,
-              bulan: item.bulan || 'Agustus',
+              bulan: item.bulan || detectedM,
               tahun: item.tahun || '2026'
             }));
 
-            // Ask option to replace or append
-            const shouldReplace = confirm(
-              `Gemini AI berhasil mengekstraksi ${formattedItems.length} item rincian belanja dari file PDF!\n\n` +
-              `• Klik [OK] untuk MENGGANTIKAN data rincian belanja saat ini.\n` +
-              `• Klik [Batal] untuk MENAMBAHKAN item ke daftar yang sudah ada.`
-            );
+            // Open the interactive confirmation modal instead of standard confirm()
+            setPendingImportItems(formattedItems);
+            setPendingImportMonth(detectedM);
+            setPendingImportFileName(file.name);
+            setMergeStrategy('replace_month');
+            setIsPdfImportPreviewOpen(true);
 
-            let newList: RincianBelanjaItem[] = [];
-            if (shouldReplace) {
-              newList = formattedItems;
-            } else {
-              newList = [
-                ...rincianList,
-                ...formattedItems.map((item, idx) => ({ ...item, noUrut: rincianList.length + idx + 1 }))
-              ];
-            }
-
-            onSaveList(newList);
-            setSyncStatusMsg(`✅ Berhasil memuat ${formattedItems.length} item Rincian Belanja dari PDF!`);
           } else {
             const errorReason = data?.error || 'Ekstraksi PDF tidak mengembalikan data Rincian Belanja.';
-            alert(`Info Ekstraksi PDF:\n\n${errorReason}\n\nSistem akan menggunakan data Rincian Belanja Standar 2026.`);
+            alert(`Info Ekstraksi PDF:\n\n${errorReason}\n\nSistem tetap mempertahankan data Rincian Belanja saat ini.`);
           }
         } catch (apiErr: any) {
           console.warn('Backend Gemini API error:', apiErr);
@@ -331,6 +398,61 @@ export function RincianBelanjaModal({
       setIsUploadingPdf(false);
       setUploadProgressMsg('');
     }
+  };
+
+  // Confirm PDF Import with selected merge strategy
+  const handleApplyPdfImport = () => {
+    if (pendingImportItems.length === 0) return;
+
+    const chosenMonth = pendingImportMonth.trim();
+    const chosenMonthLower = chosenMonth.toLowerCase();
+
+    // Ensure all items are assigned to chosenMonth
+    const preparedItems = pendingImportItems.map((item, idx) => ({
+      ...item,
+      bulan: chosenMonth,
+      noUrut: idx + 1
+    }));
+
+    let updatedList: RincianBelanjaItem[] = [];
+
+    if (mergeStrategy === 'replace_month') {
+      // 1. Keep all items from OTHER months untouched!
+      const otherMonthsItems = rincianList.filter(item => {
+        const itemBulan = (item.bulan || '').trim().toLowerCase();
+        return !itemBulan.includes(chosenMonthLower);
+      });
+
+      // 2. Combine with new items for chosenMonth
+      updatedList = [...otherMonthsItems, ...preparedItems];
+
+    } else if (mergeStrategy === 'append_month') {
+      // Append to existing items
+      const existingCount = rincianList.length;
+      const renumbered = preparedItems.map((it, idx) => ({
+        ...it,
+        noUrut: existingCount + idx + 1
+      }));
+      updatedList = [...rincianList, ...renumbered];
+
+    } else if (mergeStrategy === 'replace_all') {
+      // Full replacement
+      updatedList = preparedItems;
+    }
+
+    // Save and switch tab to the imported month
+    onSaveList(updatedList);
+    setFilterBulan(chosenMonth);
+    setBulan(`${chosenMonth} 2026`);
+    setIsPdfImportPreviewOpen(false);
+
+    // Auto sync to Google Sheets if connected
+    if (onSyncToGoogleSheets) {
+      onSyncToGoogleSheets(updatedList);
+    }
+
+    setSyncStatusMsg(`✅ Berhasil memuat ${preparedItems.length} item Rincian Belanja ke Bulan "${chosenMonth}" dari file PDF! Data bulan lain tetap aman.`);
+    setTimeout(() => setSyncStatusMsg(''), 7000);
   };
 
   // Submit Realization & Automatically Create ONE Grouped Outgoing Transaction
@@ -394,7 +516,7 @@ export function RincianBelanjaModal({
     const finalNoSurat = realizeNoSurat.trim() || `900.3.5.5/001-SDN-CBL/I/${yearStr}`;
     const finalKeterangan = realizeUraian.trim() || combinedKeterangan;
 
-    // Calculate sequential transaction No. Urut (filtering out any timestamp values > 100000)
+    // Calculate sequential transaction No. Urut
     const validExistingNos = (existingTransactions || [])
       .map(t => Number(t.no))
       .filter(n => !isNaN(n) && n > 0 && n < 100000);
@@ -468,7 +590,7 @@ export function RincianBelanjaModal({
 
     const txIdToDelete = itemToCancel.realizedTxId;
 
-    // 1. Delete associated transaction if ID is found, or search by description fallback
+    // 1. Delete associated transaction if ID is found
     if (txIdToDelete && onDeleteTransaction) {
       onDeleteTransaction(txIdToDelete, true);
     } else if (onDeleteTransaction && itemToCancel.uraian) {
@@ -481,7 +603,7 @@ export function RincianBelanjaModal({
       }
     }
 
-    // 2. Unmark realization in rincianList for all items linked to this transaction
+    // 2. Unmark realization in rincianList
     const updatedRincianList = rincianList.map(item => {
       const isSameTx = txIdToDelete && item.realizedTxId === txIdToDelete;
       const isSameItem = item.id === itemToCancel.id;
@@ -504,20 +626,9 @@ export function RincianBelanjaModal({
     setTimeout(() => setSyncStatusMsg(''), 5000);
   };
 
+  // Delete all items of active month only
   const handleDeleteMonthRincian = () => {
-    let targetMonth = filterBulan !== 'ALL' 
-      ? filterBulan 
-      : (bulan ? bulan.split(' ')[0] : 'Agustus');
-
-    if (filterBulan === 'ALL') {
-      const inputBulan = prompt(
-        'Masukkan nama bulan yang rincian belanjanya ingin dihapus (contoh: Januari, Februari, Agustus, dll):',
-        targetMonth
-      );
-      if (!inputBulan || !inputBulan.trim()) return;
-      targetMonth = inputBulan.trim();
-    }
-
+    const targetMonth = filterBulan || (bulan ? bulan.split(' ')[0] : 'Agustus');
     const targetBulanLower = targetMonth.toLowerCase();
 
     // Find items belonging to targetMonth
@@ -528,11 +639,11 @@ export function RincianBelanjaModal({
     });
 
     if (itemsToDelete.length === 0) {
-      alert(`Tidak ditemukan data rincian belanja untuk bulan "${targetMonth}".`);
+      alert(`Tidak ditemukan data rincian belanja untuk Bulan "${targetMonth}".`);
       return;
     }
 
-    if (confirm(`Apakah Anda yakin ingin MENGHAPUS SELURUH ${itemsToDelete.length} item rincian belanja untuk Bulan ${targetMonth}?\n\nPerhatian: Jika ada item yang sudah direalisasikan, transaksinya juga akan otomatis terhapus.`)) {
+    if (confirm(`Apakah Anda yakin ingin MENGHAPUS SELURUH ${itemsToDelete.length} item rincian belanja untuk Bulan ${targetMonth}?\n\nPerhatian: Jika ada item yang sudah direalisasikan, transaksinya juga akan otomatis terhapus dari Tabel Transaksi.\n\nData bulan lainnya TIDAK akan terpengaruh.`)) {
       // Clean up realized transactions if any
       itemsToDelete.forEach(item => {
         if (item.isRealized && item.realizedTxId && onDeleteTransaction) {
@@ -549,7 +660,7 @@ export function RincianBelanjaModal({
 
       onSaveList(updatedList);
       setSelectedIds([]);
-      setSyncStatusMsg(`🗑️ Berhasil menghapus ${itemsToDelete.length} item rincian belanja bulan ${targetMonth}.`);
+      setSyncStatusMsg(`🗑️ Berhasil menghapus ${itemsToDelete.length} item rincian belanja Bulan ${targetMonth}.`);
       setTimeout(() => setSyncStatusMsg(''), 5000);
     }
   };
@@ -560,7 +671,7 @@ export function RincianBelanjaModal({
       return;
     }
     setIsSyncing(true);
-    setSyncStatusMsg('Sedang menyinkronkan data Rincian Belanja ke Sheet "RINCIAN_BELANJA"...');
+    setSyncStatusMsg('Sedang menyinkronkan data Rincian Belanja ke Sheet "RINCIAN_BELANJA" & 12 Sheet Bulanan...');
     try {
       if (onSyncToGoogleSheets) {
         await onSyncToGoogleSheets(rincianList);
@@ -575,7 +686,7 @@ export function RincianBelanjaModal({
           })
         });
       }
-      setSyncStatusMsg('✅ Data Rincian Belanja Berhasil Tersimpan di Spreadsheet pada Sheet "RINCIAN_BELANJA"!');
+      setSyncStatusMsg('✅ Data Rincian Belanja Berhasil Tersimpan di Spreadsheet (Master & 12 Sheet Bulanan)!');
     } catch (err) {
       setSyncStatusMsg('❌ Gagal menyinkronkan data: ' + String(err));
     } finally {
@@ -590,7 +701,10 @@ export function RincianBelanjaModal({
 
   const handleExportPdf = async () => {
     try {
-      await exportToPdf('rincian-kertas-kerja-paper-view', 'Rincian_Kertas_Kerja_Perbulan_BOSP_2026');
+      const fileName = filterBulan !== 'ALL'
+        ? `Rincian_Kertas_Kerja_BOSP_${filterBulan}_2026`
+        : 'Rincian_Kertas_Kerja_Perbulan_BOSP_2026';
+      await exportToPdf('rincian-kertas-kerja-paper-view', fileName);
     } catch (err) {
       alert('Gagal mengekspor PDF: ' + String(err));
     }
@@ -648,18 +762,18 @@ export function RincianBelanjaModal({
                 📊 RINCIAN KERTAS KERJA PERBULAN (BOSP)
               </h3>
               <p className="text-xs text-slate-400">
-                Data Kertas Kerja Hasil Ekstraksi PDF BOSP {bulan} (Read-Only)
+                Data Kertas Kerja Ekstraksi PDF BOSP Bulanan {bulan}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* UPLOAD PDF BUTTON - EXCLUSIVE METHOD TO ADD NEW RINCIAN ITEMS */}
+            {/* UPLOAD PDF BUTTON */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploadingPdf}
               className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-md hover:scale-102 active:scale-98 disabled:opacity-50 border border-indigo-400/30"
-              title="Tambah / Perbarui Data Rincian Belanja dengan mengunggah PDF Rincian Belanja (Gemini AI Parser)"
+              title="Unggah file PDF Rincian Belanja bulanan (Januari s.d. Desember) - AI akan mengekstraksi dan menyimpannya tanpa menghapus bulan lain"
             >
               <Upload className={`w-4 h-4 ${isUploadingPdf ? 'animate-spin' : ''}`} />
               <span>{isUploadingPdf ? 'Menganalisis PDF...' : 'Upload PDF Rincian Belanja'}</span>
@@ -669,7 +783,7 @@ export function RincianBelanjaModal({
               onClick={handleSyncToSheets}
               disabled={isSyncing}
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 cursor-pointer shadow-md border border-emerald-500/50 hover:scale-102 active:scale-98 disabled:opacity-50"
-              title="Simpan & Sinkronkan Data ke Google Spreadsheet Sheet 'RINCIAN_BELANJA'"
+              title="Simpan & Sinkronkan Data ke Google Spreadsheet Sheet 'RINCIAN_BELANJA' & 12 Sheet Bulanan"
             >
               <CloudUpload className={`w-4 h-4 ${isSyncing ? 'animate-bounce' : ''}`} />
               <span>{isSyncing ? 'Menyinkronkan...' : 'Simpan ke Spreadsheet'}</span>
@@ -694,11 +808,11 @@ export function RincianBelanjaModal({
             <button
               onClick={handleDeleteMonthRincian}
               className="px-3 py-2 bg-rose-950/80 hover:bg-rose-900 text-rose-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-rose-800 shadow-sm"
-              title={filterBulan !== 'ALL' ? `Hapus Seluruh Rincian Belanja Bulan ${filterBulan}` : 'Hapus Rincian Belanja Bulan Tersebut'}
+              title={`Hapus Seluruh Rincian Belanja Bulan ${filterBulan}`}
             >
               <Trash2 className="w-4 h-4 text-rose-400" />
               <span className="hidden sm:inline">
-                {filterBulan !== 'ALL' ? `Hapus Bulan ${filterBulan}` : 'Hapus Bulan Ini'}
+                Hapus Bulan {filterBulan}
               </span>
             </button>
 
@@ -741,14 +855,18 @@ export function RincianBelanjaModal({
           </div>
 
           <div className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-0.5">B. Total Kertas Kerja ({rincianList.length} Item)</span>
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-0.5">
+              B. Total Belanja (Bulan {filterBulan})
+            </span>
             <span className="font-black text-sm text-rose-600 dark:text-rose-400 font-mono">
               Rp {formatRupiah(calculatedTotalBelanja)}
             </span>
           </div>
 
           <div className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-0.5">Realisasi Transaksi Keluar</span>
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-0.5">
+              Realisasi Transaksi (Bulan {filterBulan})
+            </span>
             <span className="font-black text-sm text-indigo-600 dark:text-indigo-400 font-mono flex items-center gap-1">
               <span>Rp {formatRupiah(totalRealizedAmount)}</span>
             </span>
@@ -757,7 +875,7 @@ export function RincianBelanjaModal({
           <div className="p-2.5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-center">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300">
               <span>NPSN: <strong>20207938</strong></span>
-              <span>Bulan: <strong className="text-amber-600 dark:text-amber-400">{filterBulan === 'ALL' ? bulan : `${filterBulan} 2026`}</strong></span>
+              <span>Bulan Aktif: <strong className="text-indigo-600 dark:text-indigo-400">{filterBulan}</strong></span>
             </div>
             <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5 font-semibold">
               {settings?.namaSekolah || 'SD NEGERI CIBURIAL'}
@@ -765,24 +883,74 @@ export function RincianBelanjaModal({
           </div>
         </div>
 
-        {/* READ ONLY NOTICE BANNER */}
-        <div className="px-6 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span>
-              <strong>Info Sistem:</strong> Rincian Kertas Kerja BOSP bersifat read-only. Penambahan/perubahan item dilakukan via <strong>Upload PDF Rincian Belanja</strong>. Pilih item untuk merealisasikannya langsung ke <strong>Tabel Transaksi Keluar</strong>.
+        {/* 12 MONTHLY TABS BAR (JANUARI - DESEMBER) */}
+        <div className="bg-slate-100 dark:bg-slate-950 px-4 py-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto shrink-0 flex items-center gap-1.5 scrollbar-thin">
+          <span className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider pl-2 pr-1 shrink-0 flex items-center gap-1">
+            <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Pilih Bulan:</span>
+          </span>
+
+          {/* 12 Individual Monthly Tabs */}
+          {MONTHS_LIST.map((mName) => {
+            const stat = monthlyStats[mName] || { count: 0, total: 0, realizedCount: 0 };
+            const isActive = filterBulan === mName;
+            const hasData = stat.count > 0;
+
+            return (
+              <button
+                key={mName}
+                type="button"
+                onClick={() => handleSelectMonthTab(mName)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  isActive
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 scale-102 font-black'
+                    : hasData
+                      ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
+                      : 'bg-slate-200/60 dark:bg-slate-900/60 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 border border-transparent'
+                }`}
+                title={`Bulan ${mName}: ${stat.count} item (Total Rp ${formatRupiah(stat.total)})`}
+              >
+                {/* Indicator dot */}
+                <span className={`w-2 h-2 rounded-full ${
+                  isActive 
+                    ? 'bg-white ring-2 ring-white/40' 
+                    : hasData 
+                      ? 'bg-emerald-500' 
+                      : 'bg-slate-300 dark:bg-slate-600'
+                }`} />
+
+                <span>{mName}</span>
+
+                {/* Badge count */}
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                  isActive
+                    ? 'bg-white/25 text-white font-bold'
+                    : hasData
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold'
+                      : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500'
+                }`}>
+                  {stat.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* BATCH REALIZATION ACTION BAR (WHEN ITEMS SELECTED) */}
+        {selectedIds.length > 0 && (
+          <div className="px-6 py-2 bg-indigo-50 dark:bg-indigo-950/40 border-b border-indigo-200 dark:border-indigo-800/60 text-xs text-indigo-900 dark:text-indigo-200 flex items-center justify-between gap-2 shrink-0">
+            <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+              {selectedIds.length} Item Terpilih (Total Rp {formatRupiah(totalSelectedAmount)})
             </span>
-          </div>
-          {selectedIds.length > 0 && (
             <button
               onClick={handleOpenRealizeBatch}
               className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
-              <span>Realisasikan ({selectedIds.length} Selected - Rp {formatRupiah(totalSelectedAmount)})</span>
+              <span>Realisasikan ke Tabel Transaksi Keluar</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* NAVIGATION TABS & FILTER BAR */}
         <div className="px-6 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
@@ -810,7 +978,7 @@ export function RincianBelanjaModal({
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>Pratonton Cetak Kertas Kerja (A4)</span>
+              <span>Pratonton Cetak Kertas Kerja A4 ({filterBulan === 'ALL' ? 'Semua Bulan' : filterBulan})</span>
             </button>
           </div>
 
@@ -828,53 +996,29 @@ export function RincianBelanjaModal({
                 />
               </div>
 
-              {/* FILTER BULAN */}
-              <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-300 dark:border-amber-700/80 rounded-xl px-2.5 py-1">
-                <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                <select
-                  value={filterBulan}
-                  onChange={(e) => setFilterBulan(e.target.value)}
-                  className="bg-transparent text-xs font-extrabold text-amber-900 dark:text-amber-200 cursor-pointer focus:outline-none"
-                >
-                  <option value="ALL">Semua Bulan (1 Tahun)</option>
-                  <option value="Januari">Bulan: Januari</option>
-                  <option value="Februari">Bulan: Februari</option>
-                  <option value="Maret">Bulan: Maret</option>
-                  <option value="April">Bulan: April</option>
-                  <option value="Mei">Bulan: Mei</option>
-                  <option value="Juni">Bulan: Juni</option>
-                  <option value="Juli">Bulan: Juli</option>
-                  <option value="Agustus">Bulan: Agustus</option>
-                  <option value="September">Bulan: September</option>
-                  <option value="Oktober">Bulan: Oktober</option>
-                  <option value="November">Bulan: November</option>
-                  <option value="Desember">Bulan: Desember</option>
-                </select>
-              </div>
+              {/* Filter Kode Program */}
+              <select
+                value={filterProgram}
+                onChange={(e) => setFilterProgram(e.target.value)}
+                className="py-1.5 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-[220px]"
+                title="Filter berdasarkan Kode Program / Standar BOSP"
+              >
+                <option value="ALL">Semua Kode Program</option>
+                {programOptions.map(([val, label]) => (
+                  <option key={val} value={val}>
+                    {label}
+                  </option>
+                ))}
+              </select>
 
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as any)}
-                className="py-1.5 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer"
+                className="py-1.5 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="ALL">Semua Status Realisasi</option>
                 <option value="UNREALIZED">Belum Direalisasikan</option>
                 <option value="REALIZED">Sudah Direalisasikan</option>
-              </select>
-
-              <select
-                value={filterProgram}
-                onChange={(e) => setFilterProgram(e.target.value)}
-                className="py-1.5 px-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer"
-              >
-                <option value="ALL">Semua Standar / Program</option>
-                <option value="02.">02 - Standar Isi</option>
-                <option value="03.">03 - Standar Proses</option>
-                <option value="04.">04 - Standar Tenaga Kependidikan</option>
-                <option value="05.">05 - Standar Sarana Prasarana</option>
-                <option value="06.">06 - Standar Pengelolaan</option>
-                <option value="07.">07 - Standar Pembiayaan</option>
-                <option value="08.">08 - Standar Penilaian</option>
               </select>
             </div>
           )}
@@ -907,11 +1051,12 @@ export function RincianBelanjaModal({
                       <th className="px-2 py-2.5 text-center w-10">No</th>
                       <th className="px-3 py-2.5 w-32">Kode Rekening</th>
                       <th className="px-3 py-2.5 w-24">Kode Prog</th>
-                      <th className="px-4 py-2.5">Uraian Keg. / Belanja</th>
+                      <th className="px-4 py-2.5">Uraian Kegiatan / Belanja</th>
                       <th className="px-2.5 py-2.5 text-center w-16">Vol</th>
                       <th className="px-2.5 py-2.5 text-center w-20">Satuan</th>
                       <th className="px-3 py-2.5 text-right w-28">Tarif Harga</th>
                       <th className="px-3 py-2.5 text-right w-32">Jumlah (Rp)</th>
+                      <th className="px-2.5 py-2.5 text-center w-24">Bulan</th>
                       <th className="px-3 py-2.5 text-center w-36">Status Realisasi</th>
                       <th className="px-3 py-2.5 text-center w-28">Aksi</th>
                     </tr>
@@ -978,6 +1123,13 @@ export function RincianBelanjaModal({
                             Rp {formatRupiah(item.jumlah)}
                           </td>
 
+                          {/* Bulan Tab indicator badge */}
+                          <td className="px-2.5 py-2 text-center">
+                            <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                              {item.bulan || 'Agustus'}
+                            </span>
+                          </td>
+
                           {/* Status Badge */}
                           <td className="px-3 py-2 text-center">
                             {isHeader ? (
@@ -1026,9 +1178,15 @@ export function RincianBelanjaModal({
 
                     {filteredList.length === 0 && (
                       <tr>
-                        <td colSpan={11} className="py-12 text-center text-slate-400 italic">
-                          <p className="font-bold text-sm text-slate-500 mb-1">Tidak ada data rincian belanja yang sesuai filter.</p>
-                          <p className="text-xs">Gunakan tombol "Upload PDF Rincian Belanja" di atas untuk memuat data dari PDF BOSP.</p>
+                        <td colSpan={12} className="py-12 text-center text-slate-400 italic">
+                          <p className="font-bold text-sm text-slate-500 mb-1">
+                            {filterBulan !== 'ALL' 
+                              ? `Belum ada data rincian belanja untuk Bulan ${filterBulan}.` 
+                              : 'Tidak ada data rincian belanja yang sesuai filter.'}
+                          </p>
+                          <p className="text-xs">
+                            Gunakan tombol "Upload PDF Rincian Belanja" di atas untuk memuat data dari PDF BOSP {filterBulan !== 'ALL' ? `Bulan ${filterBulan}` : ''}.
+                          </p>
                         </td>
                       </tr>
                     )}
@@ -1211,7 +1369,215 @@ export function RincianBelanjaModal({
 
       </div>
 
-      {/* REALIZATION MODAL (REALISASIKAN KE TRANSAKSI KELUAR) - LANDSCAPE LAYOUT */}
+      {/* MODAL 1: INTERACTIVE PDF IMPORT PREVIEW & MERGE CONFIRMATION */}
+      {isPdfImportPreviewOpen && (
+        <div className="fixed inset-0 z-70 bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] my-auto animate-in zoom-in-95 duration-150">
+            
+            {/* PREVIEW HEADER */}
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300 rounded-xl shrink-0">
+                  <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <span>Pratinjau &amp; Konfirmasi Impor PDF Rincian Belanja</span>
+                    <span className="text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      Gemini AI Extracted
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    File: <strong className="text-slate-700 dark:text-slate-300">{pendingImportFileName}</strong> • {pendingImportItems.length} baris rincian terbaca
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setIsPdfImportPreviewOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* PREVIEW BODY */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-4 text-xs">
+              
+              {/* TARGET MONTH & MERGE OPTIONS SECTION */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-850 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+                
+                {/* 1. Target Month Selector */}
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5 text-xs">
+                    <Calendar className="w-4 h-4 text-indigo-500" />
+                    <span>Target Tab Bulan Penyimpanan:</span>
+                  </label>
+                  <select
+                    value={pendingImportMonth}
+                    onChange={(e) => setPendingImportMonth(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs"
+                  >
+                    {MONTHS_LIST.map((m) => (
+                      <option key={m} value={m}>
+                        Bulan: {m} 2026
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    *Pilih bulan yang sesuai dengan dokumen PDF yang baru Anda unggah.
+                  </p>
+                </div>
+
+                {/* 2. Merge Strategy Selection */}
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5 text-xs">
+                    <Layers className="w-4 h-4 text-emerald-500" />
+                    <span>Metode Penggabungan / Penyimpanan:</span>
+                  </label>
+
+                  <div className="space-y-2">
+                    <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition ${
+                      mergeStrategy === 'replace_month'
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-950 dark:text-indigo-100'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="merge_opt"
+                        checked={mergeStrategy === 'replace_month'}
+                        onChange={() => setMergeStrategy('replace_month')}
+                        className="mt-0.5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      />
+                      <div>
+                        <span className="font-extrabold block text-xs">
+                          🌟 Gantikan Hanya Bulan {pendingImportMonth} (Rekomendasi)
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                          Hanya memperbarui rincian belanja Bulan {pendingImportMonth}. Seluruh 11 bulan lainnya tetap utuh dan tidak terhapus!
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition ${
+                      mergeStrategy === 'append_month'
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-700 text-indigo-950 dark:text-indigo-100'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="merge_opt"
+                        checked={mergeStrategy === 'append_month'}
+                        onChange={() => setMergeStrategy('append_month')}
+                        className="mt-0.5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      />
+                      <div>
+                        <span className="font-extrabold block text-xs">
+                          ➕ Tambahkan ke Bulan {pendingImportMonth}
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                          Menambahkan baris baru ini ke rincian belanja Bulan {pendingImportMonth} yang sudah ada.
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-start gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                      mergeStrategy === 'replace_all'
+                        ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-700 text-rose-950 dark:text-rose-100'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="merge_opt"
+                        checked={mergeStrategy === 'replace_all'}
+                        onChange={() => setMergeStrategy('replace_all')}
+                        className="mt-0.5 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                      />
+                      <div>
+                        <span className="font-bold block text-xs text-rose-700 dark:text-rose-300">
+                          ⚠️ Timpa Seluruh Data (Semua 12 Bulan)
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                          Hanya pilih jika Anda ingin mereset seluruh tahunan dan menggantinya hanya dengan isi dokumen ini.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* EXTRACTED ITEMS PREVIEW TABLE */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-indigo-500" />
+                    <span>Daftar {pendingImportItems.length} Baris Rincian Terbaca:</span>
+                  </span>
+                  <span className="font-mono font-extrabold text-indigo-600 dark:text-indigo-400 text-xs">
+                    Total Belanja: Rp {formatRupiah(pendingImportItems.reduce((acc, c) => acc + (c.jumlah || 0), 0))}
+                  </span>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                  <table className="w-full text-left text-[11px] border-collapse">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold sticky top-0">
+                      <tr>
+                        <th className="px-2 py-1.5 text-center w-8">No</th>
+                        <th className="px-2 py-1.5 w-24">Kode Rek</th>
+                        <th className="px-3 py-1.5">Uraian</th>
+                        <th className="px-2 py-1.5 text-center w-12">Vol</th>
+                        <th className="px-2 py-1.5 text-center w-14">Satuan</th>
+                        <th className="px-2 py-1.5 text-right w-24">Tarif</th>
+                        <th className="px-2.5 py-1.5 text-right w-28">Jumlah</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                      {pendingImportItems.map((item, idx) => (
+                        <tr key={idx} className={item.isHeader ? 'bg-slate-50 dark:bg-slate-800/60 font-bold' : ''}>
+                          <td className="px-2 py-1 text-center font-mono text-slate-500">{idx + 1}</td>
+                          <td className="px-2 py-1 font-mono text-slate-600 dark:text-slate-400">{item.kodeRekening || '-'}</td>
+                          <td className="px-3 py-1 font-medium">{item.uraian}</td>
+                          <td className="px-2 py-1 text-center font-mono">{item.volume || '-'}</td>
+                          <td className="px-2 py-1 text-center">{item.satuan || '-'}</td>
+                          <td className="px-2 py-1 text-right font-mono">{item.tarifHarga > 0 ? formatRupiah(item.tarifHarga) : '-'}</td>
+                          <td className="px-2.5 py-1 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                            Rp {formatRupiah(item.jumlah)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            {/* PREVIEW FOOTER */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsPdfImportPreviewOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                onClick={handleApplyPdfImport}
+                className="px-5 py-2 text-xs font-black text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 rounded-xl transition shadow-md flex items-center gap-2 cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                <span>Simpan &amp; Terapkan ke Bulan {pendingImportMonth}</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: REALIZATION MODAL (REALISASIKAN KE TRANSAKSI KELUAR) - LANDSCAPE LAYOUT */}
       {isRealizeModalOpen && (
         <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
           <form 
@@ -1264,7 +1630,7 @@ export function RincianBelanjaModal({
                     <div key={item.id} className="text-[11px] p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
                       <div className="truncate">
                         <span className="font-bold text-slate-900 dark:text-slate-100">{idx + 1}. {item.uraian}</span>
-                        <span className="text-[10px] text-slate-500 block font-mono">Kode Rek: {item.kodeRekening || '-'} | Vol: {item.volume} {item.satuan} @ Rp {formatRupiah(item.tarifHarga)}</span>
+                        <span className="text-[10px] text-slate-500 block font-mono">Kode Rek: {item.kodeRekening || '-'} | Vol: {item.volume} {item.satuan} @ Rp {formatRupiah(item.tarifHarga)} | Bulan: {item.bulan || '-'}</span>
                       </div>
                       <span className="font-mono font-bold text-slate-800 dark:text-slate-200 shrink-0">
                         Rp {formatRupiah(item.jumlah)}
@@ -1284,7 +1650,7 @@ export function RincianBelanjaModal({
                     <span>Informasi Transaksi &amp; Surat</span>
                   </h5>
 
-                  {/* 1. JENIS TRANSAKSI / PENGADAAN (Daftar opsi disamakan persis dengan Form Transaksi) */}
+                  {/* 1. JENIS TRANSAKSI / PENGADAAN */}
                   <div>
                     <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5 text-indigo-500" />
@@ -1399,51 +1765,45 @@ export function RincianBelanjaModal({
                         defaultValue=""
                         className="w-full px-2.5 py-1.5 text-xs font-bold border border-amber-300 dark:border-amber-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
                       >
-                        <option value="">-- Pilih Nama dari List Master Honor --</option>
+                        <option value="">-- Pilih Guru / Tenaga Pendidik --</option>
                         {honorRecipients.map((rec) => (
                           <option key={rec.id} value={rec.id}>
-                            {rec.namaPenerima} ({rec.jabatan || 'Penerima Honor'}) - Rp {formatRupiah(rec.netto || 0)}
+                            {rec.namaPenerima} ({rec.jabatan || rec.kategoriDefault || 'Pendidik'}) - {rec.namaBank} {rec.noRekPenerima}
                           </option>
                         ))}
                       </select>
                     </div>
                   )}
 
-                  {/* URAIAN BELANJA */}
+                  {/* URAIAN TRANSAKSI KELUAR */}
                   <div>
-                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Tag className="w-3.5 h-3.5 text-indigo-500" />
-                        <span>Uraian Belanja (Keterangan Transaksi):</span>
-                      </span>
-                      {(realizeJenis || '').toLowerCase().includes('honor') && (
-                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
-                          💡 List Master Honor
-                        </span>
-                      )}
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Keterangan Transaksi:</span>
                     </label>
                     <textarea
                       rows={2}
                       required
                       value={realizeUraian}
                       onChange={(e) => setRealizeUraian(e.target.value)}
-                      placeholder={(realizeJenis || '').toLowerCase().includes('honor') ? "Pembayaran Honorarium..." : "Masukkan uraian belanja untuk transaksi..."}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                      placeholder="Uraian ringkas belanja..."
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs text-xs"
                     />
                   </div>
 
                   {/* VENDOR SELECTION */}
                   <div>
-                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
                       <Store className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Vendor / Toko / Penerima Pembayaran:</span>
+                      <span>Penyedia / Toko / Vendor:</span>
                     </label>
                     <select
                       value={selectedVendorId}
                       onChange={(e) => {
-                        setSelectedVendorId(e.target.value);
-                        if (e.target.value && e.target.value !== 'CUSTOM') {
-                          const v = vendors.find(x => x.id === e.target.value);
+                        const val = e.target.value;
+                        setSelectedVendorId(val);
+                        if (val !== 'CUSTOM') {
+                          const v = vendors.find(item => item.id === val);
                           if (v) {
                             setCustomVendorName(v.nama);
                             setCustomVendorAddress(v.alamat || '');
@@ -1453,57 +1813,31 @@ export function RincianBelanjaModal({
                       }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-2xs mb-2"
                     >
-                      <option value="">-- Pilih dari Master Vendor --</option>
-                      {vendors.map(v => (
+                      {vendors.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.nama} {v.npwp ? `(NPWP: ${v.npwp})` : ''}
+                          {v.nama} {v.alamat ? `(${v.alamat})` : ''}
                         </option>
                       ))}
-                      <option value="CUSTOM">+ Isikan Nama Vendor Baru Secara Manual</option>
+                      <option value="CUSTOM">+ Masukkan Nama Toko / Penerima Manual</option>
                     </select>
 
-                    {/* Custom Vendor Details */}
-                    {(!selectedVendorId || selectedVendorId === 'CUSTOM') && (
-                      <div className="space-y-2 p-3 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
-                            Nama Vendor / Toko:
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={customVendorName}
-                            onChange={(e) => setCustomVendorName(e.target.value)}
-                            placeholder="Misal: CV. Media Sarana Utama"
-                            className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold uppercase"
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
-                              NPWP Vendor:
-                            </label>
-                            <input
-                              type="text"
-                              value={customVendorNpwp}
-                              onChange={(e) => setCustomVendorNpwp(e.target.value)}
-                              placeholder="01.234.567.8-901.000"
-                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-[11px] font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 mb-0.5">
-                              Alamat Vendor:
-                            </label>
-                            <input
-                              type="text"
-                              value={customVendorAddress}
-                              onChange={(e) => setCustomVendorAddress(e.target.value)}
-                              placeholder="Jl. Tangkuban Perahu No. 45"
-                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-[11px]"
-                            />
-                          </div>
-                        </div>
+                    {selectedVendorId === 'CUSTOM' && (
+                      <div className="space-y-2 pt-1">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Nama Toko / Penyedia / Penerima..."
+                          value={customVendorName}
+                          onChange={(e) => setCustomVendorName(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Alamat Toko / Penyedia..."
+                          value={customVendorAddress}
+                          onChange={(e) => setCustomVendorAddress(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 text-xs"
+                        />
                       </div>
                     )}
                   </div>
@@ -1514,23 +1848,30 @@ export function RincianBelanjaModal({
 
             </div>
 
-            {/* ACTION BUTTONS (FIXED AT BOTTOM) */}
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsRealizeModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white rounded-xl text-xs font-extrabold shadow-lg cursor-pointer flex items-center gap-2 hover:scale-102 active:scale-98 transition"
-              >
-                <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
-                <span>Realisasikan &amp; Buat Transaksi Keluar</span>
-              </button>
+            {/* MODAL FOOTER */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
+              <span className="text-xs text-slate-500">
+                Total Realisasi: <strong className="text-indigo-600 dark:text-indigo-400 font-mono text-sm">Rp {formatRupiah(totalSelectedAmount)}</strong>
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsRealizeModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-black text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 rounded-xl transition shadow-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Simpan ke Transaksi Keluar</span>
+                </button>
+              </div>
             </div>
+
           </form>
         </div>
       )}
